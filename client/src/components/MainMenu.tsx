@@ -31,6 +31,7 @@ export const MainMenu: React.FC = () => {
   const { 
     phase, 
     startGame, 
+    startTournament,
     customization, 
     updateCustomization, 
     wins, 
@@ -188,9 +189,9 @@ export const MainMenu: React.FC = () => {
             </div>
           </div>
 
-          <button className="btn-primary" onClick={startGame} style={{ width: '100%', justifyContent: 'center', padding: '10px' }}>
+          <button className="btn-primary" onClick={startTournament} style={{ width: '100%', justifyContent: 'center', padding: '10px' }}>
             <Play size={18} fill="white" />
-            Launch Race
+            Launch Tournament
           </button>
         </div>
       </div>

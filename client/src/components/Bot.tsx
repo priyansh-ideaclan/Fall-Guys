@@ -4,6 +4,7 @@ import { RigidBody, CapsuleCollider, useRapier, RapierRigidBody } from '@react-t
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store/useGameStore';
+import { getRacerProgressValue } from '../utils/progress';
 
 export interface BotProps {
   id: string;
@@ -14,7 +15,7 @@ export interface BotProps {
   spawnPos: [number, number, number];
 }
 
-// Handcrafted navigation node lists for Levels 1-5
+// Handcrafted navigation node lists for Levels 1-5 & mini-games
 const LEVEL_1_NODES: Array<[number, number, number]> = [
   [0, 0, 0], [0, 0, 7], [0, 0, 11], [0, 0, 14], [0, 0, 21.5],
   [0, 0, 25.5], [0, 0, 26.5], [0, 0, 34.5], [0, 0, 37.5], [0, 0, 46.0],
@@ -33,28 +34,20 @@ const LEVEL_3_NODES: Array<[number, number, number]> = [
   [-1.5, 0, 96.5], [1.5, 0, 96.5], [0, 0, 110.0]
 ];
 
-const LEVEL_4_NODES: Array<[number, number, number]> = [
-  [0, 0, 0], [0, 0, 6], [0, 0, 10], [0, 0, 17], [0, 0, 22],
-  [-1.6, 0, 28], [1.6, 0, 32], [0, 0, 36], [0, 0, 45], [0, 0, 60],
-  [0, 0, 62], [0, 0, 74], [0, 0, 82], [0, 0, 90], [0, 0, 101.5],
-  [0, 0, 111], [0, 0, 121], [0, 0, 123], [0, 0, 140.5]
+const LEVEL_GATE_MAZE: Array<[number, number, number]> = [
+  [0, 0, 0], [-1.6, 0.5, 12], [0, 0.5, 24], [1.6, 0.5, 36], [0, 0.5, 46]
 ];
 
-const LEVEL_5_NODES: Array<[number, number, number]> = [
-  [0, 9.1, 0], [0, 9.1, 4.0], [-0.6, 8.5, 7.2], [0.6, 8.5, 7.2],
-  [0, 7.8, 10.4], [-0.6, 7.0, 13.6], [0.6, 7.0, 13.6], [0, 6.3, 16.8],
-  [-0.6, 5.6, 20.0], [0.6, 5.6, 20.0], [0, 5.0, 23.2], [0, 4.6, 34.0],
-  [0, 4.6, 47.0], [0, 4.6, 56.0], [0, 4.6, 66.0], [0, 4.6, 78.0],
-  [0, 4.6, 87.0], [0, 4.6, 96.0], [0, 4.6, 105.0], [0, 4.6, 116.0],
-  [0, 4.6, 132.0], [0, 4.6, 144.0]
+const LEVEL_FINAL_CLIMB: Array<[number, number, number]> = [
+  [0, 0, 0], [0, 1.2, 12], [-1.2, 0.8, 18], [1.2, 1.3, 24], [0, 4.8, 30], [0, 5.8, 38], [0, 8.8, 48]
 ];
 
-const LEVEL_PATHS: Record<number, Array<[number, number, number]>> = {
-  0: LEVEL_1_NODES,
-  1: LEVEL_2_NODES,
-  2: LEVEL_3_NODES,
-  3: LEVEL_4_NODES,
-  4: LEVEL_5_NODES,
+const LEVEL_PATHS: Record<string, Array<[number, number, number]>> = {
+  'race_1': LEVEL_1_NODES,
+  'race_2': LEVEL_2_NODES,
+  'race_3': LEVEL_3_NODES,
+  'logic_2': LEVEL_GATE_MAZE,
+  'final_2': LEVEL_FINAL_CLIMB,
 };
 
 export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty, spawnPos }) => {
@@ -67,10 +60,13 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
   const { rapier, world } = useRapier();
   const phase = useGameStore((state) => state.phase);
-  const currentLevel = useGameStore((state) => state.currentLevelIndex);
-  const qualifyBot = useGameStore((state) => state.qualifyBot);
-  const eliminateBot = useGameStore((state) => state.eliminateBot);
+  const currentLevelId = useGameStore((state) => state.currentLevelId);
+  const currentLevelType = useGameStore((state) => state.currentLevelType);
+  const activeColorPattern = useGameStore((state) => state.activeColorPattern);
+  const qualifyBot = useGameStore((state) => state.qualifyRacer);
+  const eliminateBot = useGameStore((state) => state.eliminateRacer);
   const updateRacerProgress = useGameStore((state) => state.updateRacerProgress);
+  const scores = useGameStore((state) => state.scores);
 
   // Ref for camera-distance opacity of name label
   const nameLabelRef = useRef<any>(null);
@@ -95,7 +91,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   const botSpeed = useRef(difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.2 : 4.9);
 
   useEffect(() => {
-    if (phase === 'PLAYING') {
+    if (phase === 'PLAYING' || phase === 'ROUND_INTRO') {
       setIsQualified(false);
       setIsEliminated(false);
       currentNodeIndex.current = 0;
@@ -135,6 +131,41 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     const pos = rb.translation();
 
+    const progressValue = getRacerProgressValue(currentLevelId, pos);
+
+    // Report live leaderboard progress
+    updateRacerProgress({
+      id,
+      name,
+      progressValue,
+      yPos: pos.y,
+      score: scores[id] || 0,
+      finished: isQualified,
+    });
+
+    // Update name label opacity based on camera distance
+    if (nameLabelRef.current) {
+      const camPos = state.camera.position;
+      const dist = Math.sqrt(
+        (camPos.x - pos.x) ** 2 + (camPos.y - pos.y) ** 2 + (camPos.z - pos.z) ** 2
+      );
+      nameLabelRef.current.fillOpacity = dist > 35 ? Math.max(0, 1 - (dist - 35) / 15) : 1;
+    }
+
+    // Checkpoint updates based on positions
+    if (currentLevelId === 'race_1') {
+      if (pos.z > 32 && botLastCheckpoint.current[2] < 32) botLastCheckpoint.current = [0, 1.2, 35.5];
+    } else if (currentLevelId === 'race_2') {
+      if (pos.z > 43 && botLastCheckpoint.current[2] < 43) botLastCheckpoint.current = [0, 1.2, 45.5];
+      if (pos.z > 78 && botLastCheckpoint.current[2] < 78) botLastCheckpoint.current = [0, 5.2, 80];
+    } else if (currentLevelId === 'race_3') {
+      if (pos.z > 45 && botLastCheckpoint.current[2] < 45) botLastCheckpoint.current = [0, 1.2, 47.5];
+    } else if (currentLevelId === 'logic_2') {
+      if (pos.z > 18 && botLastCheckpoint.current[2] < 18) botLastCheckpoint.current = [0, 1.2, 20];
+    } else if (currentLevelId === 'final_2') {
+      if (pos.z > 42 && botLastCheckpoint.current[2] < 42) botLastCheckpoint.current = [0, 8.5, 48];
+    }
+
     // 1. Raycast ground check (Velocity Locked & Offset Origin)
     const rayOrigin = new THREE.Vector3(pos.x, pos.y - 0.51, pos.z);
     const rayDir = { x: 0, y: -1, z: 0 };
@@ -157,48 +188,20 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       jumpCountRef.current = 1; // fell off a ledge, only 1 jump remaining
     }
 
-    // 2. Teleport check if fell below kill boundaries
-    const killBoundaryY = currentLevel === 4 ? 0.0 : -8.0; // Level 5 (index 4) starts high
+    // 2. Teleport check or instant elimination if fell below boundaries
+    const killBoundaryY = (currentLevelId === 'final_1' || currentLevelId === 'logic_1' || currentLevelId === 'survival_2') ? 0.0 : -8.0;
     if (pos.y < killBoundaryY) {
-      rb.setTranslation(new THREE.Vector3(...botLastCheckpoint.current), true);
-      rb.setLinvel(new THREE.Vector3(0, 0, 0), true);
-      rb.setAngvel(new THREE.Vector3(0, 0, 0), true);
-      stuckTimeRef.current = 0;
+      if (currentLevelType === 'SURVIVAL' || currentLevelType === 'LOGIC' || currentLevelId === 'final_1') {
+        // Eliminated!
+        setIsEliminated(true);
+        eliminateBot(id);
+      } else {
+        rb.setTranslation(new THREE.Vector3(...botLastCheckpoint.current), true);
+        rb.setLinvel(new THREE.Vector3(0, 0, 0), true);
+        rb.setAngvel(new THREE.Vector3(0, 0, 0), true);
+        stuckTimeRef.current = 0;
+      }
       return;
-    }
-
-    // Report live leaderboard progress
-    updateRacerProgress({
-      id,
-      name,
-      nodeIndex: currentNodeIndex.current,
-      zPos: pos.z,
-      finished: isQualified,
-    });
-
-    // Update name label opacity based on camera distance
-    if (nameLabelRef.current) {
-      const camPos = state.camera.position;
-      const dist = Math.sqrt(
-        (camPos.x - pos.x) ** 2 + (camPos.y - pos.y) ** 2 + (camPos.z - pos.z) ** 2
-      );
-      nameLabelRef.current.fillOpacity = dist > 35 ? Math.max(0, 1 - (dist - 35) / 15) : 1;
-    }
-
-    // Checkpoint updates based on positions
-    if (currentLevel === 0) {
-      if (pos.z > 42 && botLastCheckpoint.current[2] < 42) botLastCheckpoint.current = [0, 1.2, 46];
-    } else if (currentLevel === 1) {
-      if (pos.z > 52 && botLastCheckpoint.current[2] < 52) botLastCheckpoint.current = [0, 1.2, 56];
-      if (pos.z > 92 && botLastCheckpoint.current[2] < 92) botLastCheckpoint.current = [0, 5.2, 95];
-    } else if (currentLevel === 2) {
-      if (pos.z > 54 && botLastCheckpoint.current[2] < 54) botLastCheckpoint.current = [0, 1.2, 58];
-    } else if (currentLevel === 3) {
-      if (pos.z > 32 && botLastCheckpoint.current[2] < 32) botLastCheckpoint.current = [0, 1.2, 34];
-      if (pos.z > 98 && botLastCheckpoint.current[2] < 98) botLastCheckpoint.current = [0, 1.2, 102];
-    } else if (currentLevel === 4) {
-      if (pos.z > 38 && botLastCheckpoint.current[2] < 38) botLastCheckpoint.current = [0, 5.5, 40];
-      if (pos.z > 101 && botLastCheckpoint.current[2] < 101) botLastCheckpoint.current = [0, 5.5, 103];
     }
 
     // 3. Three.js Raycaster for surface properties (ice, mud, conveyors)
@@ -238,7 +241,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     }
 
     // Natural hesitation slowdown before gap jumps for Easy/Medium bots
-    const isNearGap = (currentLevel === 1 && pos.z > 7.5 && pos.z < 9.5) || (currentLevel === 1 && pos.z > 22.5 && pos.z < 24.5);
+    const isNearGap = (currentLevelId === 'race_2' && pos.z > 7.5 && pos.z < 9.5) || (currentLevelId === 'race_2' && pos.z > 22.5 && pos.z < 24.5);
     if (isNearGap && (difficulty === 'EASY' || difficulty === 'MEDIUM') && Math.random() < 0.25) {
       activeSpeed *= 0.65;
     }
@@ -267,32 +270,194 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       }
     });
 
-    // AI Path steering updates
+    // AI Multi-mode Steering logic
     let steerDir = new THREE.Vector3(0, 0, 0);
     let shouldJump = false;
 
-    const pathNodes = LEVEL_PATHS[currentLevel] || LEVEL_1_NODES;
-    const targetNode = pathNodes[currentNodeIndex.current];
+    if (currentLevelType === 'RACE' || currentLevelId === 'logic_2' || currentLevelId === 'final_2') {
+      // Path steering for races and courses
+      const pathNodes = LEVEL_PATHS[currentLevelId] || LEVEL_1_NODES;
+      const targetNode = pathNodes[currentNodeIndex.current];
 
-    if (targetNode) {
-      const targetPos = new THREE.Vector3(...targetNode).add(targetOffset.current);
-      const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(targetPos);
+      if (targetNode) {
+        const targetPos = new THREE.Vector3(...targetNode).add(targetOffset.current);
+        const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(targetPos);
 
-      if (dist < 1.3 && currentNodeIndex.current < pathNodes.length - 1) {
-        currentNodeIndex.current++;
-        const widthSpread = difficulty === 'EASY' ? 1.4 : difficulty === 'MEDIUM' ? 0.7 : 0.2;
-        targetOffset.current.set(
-          (Math.random() - 0.5) * widthSpread,
-          0,
-          (Math.random() - 0.5) * widthSpread
-        );
+        if (dist < 1.3 && currentNodeIndex.current < pathNodes.length - 1) {
+          currentNodeIndex.current++;
+          const widthSpread = difficulty === 'EASY' ? 1.4 : difficulty === 'MEDIUM' ? 0.7 : 0.2;
+          targetOffset.current.set(
+            (Math.random() - 0.5) * widthSpread,
+            0,
+            (Math.random() - 0.5) * widthSpread
+          );
+        }
+
+        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+
+        // Qualify finish check
+        if (currentNodeIndex.current === pathNodes.length - 1 && dist < 1.4) {
+          setIsQualified(true);
+          qualifyBot(id);
+          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+          return;
+        }
       }
+    } else if (currentLevelId === 'survival_1') {
+      // Spinning sweeper: run in a slow circle around center
+      const botIdx = parseInt(id.replace('bot_', '')) || 0;
+      const time = state.clock.getElapsedTime();
+      const radius = 3.5 + (botIdx % 3) * 0.8;
+      const angle = time * 0.35 + (botIdx * Math.PI / 4.5);
+      const targetPos = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
 
       steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
       steerDir.y = 0;
       steerDir.normalize();
+    } else if (currentLevelId === 'survival_2') {
+      // Lava platform climb
+      const botIdx = parseInt(id.replace('bot_', '')) || 0;
+      const cycle = state.clock.getElapsedTime() % 8;
+      const isLavaThreat = cycle > 2.0;
 
-      // Introduce human-like waddle steering noise (lateral zig-zag drift)
+      if (isLavaThreat) {
+        // Run to designated safe pillar
+        const pillars: [number, number, number][] = [
+          [-5, 1.8, -5],
+          [5, 1.8, -5],
+          [-5, 1.8, 5],
+          [5, 1.8, 5],
+        ];
+        const targetPillar = pillars[botIdx % 4];
+        const targetPos = new THREE.Vector3(...targetPillar);
+
+        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+
+        // Jump if near the pillar base to climb it
+        const flatDist = new THREE.Vector2(pos.x - targetPillar[0], pos.z - targetPillar[2]).length();
+        if (flatDist < 2.0 && pos.y < 1.4 && isGroundedRef.current && jumpCooldown.current <= 0) {
+          shouldJump = true;
+        }
+      } else {
+        // Chill near center starting deck
+        const targetPos = new THREE.Vector3(0, 1.2, 0);
+        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+      }
+    } else if (currentLevelId === 'logic_1') {
+      // Memory color blocks
+      const botIdx = parseInt(id.replace('bot_', '')) || 0;
+      const cycle = state.clock.getElapsedTime() % 7;
+      const isDangerNear = cycle > 2.5;
+
+      const colorsPos = {
+        RED: [
+          [-2.6, 0, -2.6],
+          [0, 0, 0],
+          [2.6, 0, 2.6]
+        ],
+        GREEN: [
+          [0, 0, -2.6],
+          [-2.6, 0, 2.6],
+          [2.6, 0, 0]
+        ],
+        BLUE: [
+          [2.6, 0, -2.6],
+          [-2.6, 0, 0],
+          [0, 0, 2.6]
+        ]
+      };
+
+      const cycleCount = Math.floor(state.clock.getElapsedTime() / 7);
+      const randomSeed = Math.sin(botIdx * 45 + cycleCount) * 10;
+      const isConfused = (difficulty === 'EASY' && (randomSeed % 1) < 0.28) || (difficulty === 'MEDIUM' && (randomSeed % 1) < 0.12);
+
+      let targetColor = activeColorPattern;
+      if (isConfused && isDangerNear) {
+        // Run to a wrong color tile!
+        targetColor = activeColorPattern === 'RED' ? 'BLUE' : 'RED';
+      }
+
+      const activeColorTiles = colorsPos[targetColor as keyof typeof colorsPos] || colorsPos.RED;
+      const targetTile = activeColorTiles[botIdx % activeColorTiles.length];
+      const targetPos = new THREE.Vector3(...targetTile);
+
+      steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+      steerDir.y = 0;
+      steerDir.normalize();
+    } else if (currentLevelId === 'hunt_1') {
+      // Star Hunt: find closest active star in 3D scene
+      const stars = state.scene.children.filter((child) => child.name === 'star');
+      let closestStar: THREE.Object3D | null = null;
+      let minDist = 9999;
+
+      stars.forEach((star) => {
+        const starPos = new THREE.Vector3();
+        star.getWorldPosition(starPos);
+        const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(starPos);
+        if (dist < minDist) {
+          minDist = dist;
+          closestStar = star;
+        }
+      });
+
+      if (closestStar) {
+        const targetPos = new THREE.Vector3();
+        (closestStar as THREE.Object3D).getWorldPosition(targetPos);
+        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+
+        const flatDist = new THREE.Vector2(pos.x - targetPos.x, pos.z - targetPos.z).length();
+        if (flatDist < 1.0 && targetPos.y > pos.y + 1.2 && isGroundedRef.current && jumpCooldown.current <= 0) {
+          shouldJump = true;
+        }
+      } else {
+        const targetPos = new THREE.Vector3(0, 0, 0);
+        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+      }
+    } else if (currentLevelId === 'final_1') {
+      // Honeycomb hex collapse
+      let closestHex: THREE.Object3D | null = null;
+      let minDist = 9999;
+
+      state.scene.traverse((child) => {
+        if (child.userData && child.userData.active === true) {
+          const hexPos = new THREE.Vector3();
+          child.getWorldPosition(hexPos);
+          if (hexPos.y <= pos.y + 0.3 && hexPos.y >= pos.y - 4.0) {
+            const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(hexPos);
+            if (dist < minDist) {
+              minDist = dist;
+              closestHex = child;
+            }
+          }
+        }
+      });
+
+      if (closestHex) {
+        const targetPos = new THREE.Vector3();
+        (closestHex as THREE.Object3D).getWorldPosition(targetPos);
+        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+
+        const flatDist = new THREE.Vector2(pos.x - targetPos.x, pos.z - targetPos.z).length();
+        if (flatDist > 0.8 && flatDist < 2.5 && isGroundedRef.current && jumpCooldown.current <= 0) {
+          shouldJump = true;
+        }
+      }
+    }
+
+    // Add waddle steering drift
+    if (steerDir.lengthSq() > 0.01) {
       const botIdx = parseInt(id.replace('bot_', '')) || 0;
       const clockTime = state.clock.getElapsedTime();
       const waddleSpeed = 5.0 + (botIdx % 3) * 1.2;
@@ -301,17 +466,9 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       const lateralDir = new THREE.Vector3(-steerDir.z, 0, steerDir.x);
       steerDir.addScaledVector(lateralDir, Math.sin(clockTime * waddleSpeed) * waddleAmp);
       steerDir.normalize();
-
-      // Qualify finish check
-      if (currentNodeIndex.current === pathNodes.length - 1 && dist < 1.4) {
-        setIsQualified(true);
-        qualifyBot(id);
-        rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-        return;
-      }
     }
 
-    // 5. Jump decision logic (evaluated every frame for responsive timing!)
+    // 5. Jump decision logic
 
     // A. Forward-Downward Raycast sensor for Gap/Void detection
     const forwardOffset = steerDir.clone().multiplyScalar(0.5);
@@ -330,7 +487,6 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       sweeper.getWorldPosition(sweeperPos);
       const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(sweeperPos);
       
-      // If close to rotating sweeper base, check arm sweep angle
       if (dist < 3.2 && jumpCooldown.current <= 0) {
         const botAngle = Math.atan2(pos.x - sweeperPos.x, pos.z - sweeperPos.z);
         const sweepRot = sweeper.rotation.y;
@@ -338,7 +494,6 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         angleDiff = Math.abs(angleDiff);
 
-        // If blade is approaching within 45 degrees, trigger timed leap
         if (angleDiff < 0.8 && Math.random() < (difficulty === 'EASY' ? 0.5 : difficulty === 'MEDIUM' ? 0.8 : 0.98)) {
           shouldJump = true;
         }
@@ -353,7 +508,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       }
     }
 
-    // D. Stuck check / Barrier hopping (if speed is slow while trying to run)
+    // D. Stuck check / Barrier hopping
     const displacement = new THREE.Vector2(pos.x - lastPosRef.current.x, pos.z - lastPosRef.current.z).length();
     if (displacement < 0.02 && steerDir.lengthSq() > 0.01) {
       stuckTimeRef.current += delta;
@@ -367,19 +522,15 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     lastPosRef.current.set(pos.x, pos.y, pos.z);
 
     // E. Level-Specific Jump Triggers (e.g. Launch pads)
-    if (currentLevel === 1) {
-      // Level 2 Jump Pad zone
-      if (pos.z > 83.5 && pos.z < 86.5 && Math.abs(pos.x) < 1.0 && jumpCooldown.current <= 0) {
+    if (currentLevelId === 'race_2') {
+      if (pos.z > 69.5 && pos.z < 72.5 && Math.abs(pos.x) < 1.0 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
-    } else if (currentLevel === 3) {
-      // Level 4 Mud Speed Jump Pad
-      if (pos.z > 83.5 && pos.z < 86.5 && Math.abs(pos.x) < 1.0 && jumpCooldown.current <= 0) {
+    } else if (currentLevelId === 'final_2') {
+      if (pos.z > 16.5 && pos.z < 19.5 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
-    } else if (currentLevel === 4) {
-      // Level 5 Mud Speed Jump Pad
-      if (pos.z > 136 && pos.z < 139 && Math.abs(pos.x) < 1.0 && jumpCooldown.current <= 0) {
+      if (pos.z > 22.5 && pos.z < 25.5 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
     }
@@ -392,7 +543,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     if (shouldJump && jumpCooldown.current <= 0 && jumpCountRef.current < 2) {
       moveTargetY = jumpImpulse;
-      jumpCooldown.current = 0.5; // short cooldown between double jumps
+      jumpCooldown.current = 0.5;
       jumpCountRef.current++;
     }
 
@@ -410,10 +561,8 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       visualGroupRef.current.rotation.y += diff * 0.15;
     }
 
-    // Waddling legs/arms animations
-    const clockTime = state.clock.getElapsedTime();
+    // Leg/arm swing waddles
     const speed = new THREE.Vector3(vel.x, 0, vel.z).length();
-
     const visual = visualGroupRef.current;
     const lLeg = leftLegRef.current;
     const rLeg = rightLegRef.current;
@@ -433,27 +582,29 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       if (!isGroundedRef.current) {
         visual.scale.set(0.54, 0.69, 0.54);
         const flail = 22;
-        lLeg.rotation.x = Math.sin(clockTime * flail) * 0.5;
-        rLeg.rotation.x = Math.cos(clockTime * flail) * 0.5;
-        lArm.rotation.z = -Math.PI/3 + Math.sin(clockTime * flail) * 0.4;
-        rArm.rotation.z = Math.PI/3 + Math.cos(clockTime * flail) * 0.4;
+        lLeg.rotation.x = Math.sin(state.clock.getElapsedTime() * flail) * 0.5;
+        rLeg.rotation.x = Math.cos(state.clock.getElapsedTime() * flail) * 0.5;
+        lArm.rotation.z = -Math.PI/3 + Math.sin(state.clock.getElapsedTime() * flail) * 0.4;
+        rArm.rotation.z = Math.PI/3 + Math.cos(state.clock.getElapsedTime() * flail) * 0.4;
       } else if (speed > 0.3) {
         const waddleFreq = Math.max(12, speed * 2.8);
-        lLeg.rotation.x = Math.sin(clockTime * waddleFreq) * 0.5;
-        rLeg.rotation.x = -Math.sin(clockTime * waddleFreq) * 0.5;
-        lArm.rotation.x = -Math.sin(clockTime * waddleFreq) * 0.5;
-        rArm.rotation.x = Math.sin(clockTime * waddleFreq) * 0.5;
+        lLeg.rotation.x = Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.5;
+        rLeg.rotation.x = -Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.5;
+        lArm.rotation.x = -Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.5;
+        rArm.rotation.x = Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.5;
         
-        visual.position.y = -0.12 + Math.abs(Math.sin(clockTime * waddleFreq)) * 0.12;
-        visual.rotation.z = Math.sin(clockTime * waddleFreq) * 0.08;
+        visual.position.y = -0.12 + Math.abs(Math.sin(state.clock.getElapsedTime() * waddleFreq)) * 0.12;
+        visual.rotation.z = Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.08;
       } else {
         const breathing = 2.5;
-        visual.position.y = -0.12 + Math.sin(clockTime * breathing) * 0.03;
-        lArm.rotation.z = -Math.sin(clockTime * breathing) * 0.05 - 0.15;
-        rArm.rotation.z = Math.sin(clockTime * breathing) * 0.05 + 0.15;
+        visual.position.y = -0.12 + Math.sin(state.clock.getElapsedTime() * breathing) * 0.03;
+        lArm.rotation.z = -Math.sin(state.clock.getElapsedTime() * breathing) * 0.05 - 0.15;
+        rArm.rotation.z = Math.sin(state.clock.getElapsedTime() * breathing) * 0.05 + 0.15;
       }
     }
   });
+
+  if (isEliminated) return null;
 
   return (
     <RigidBody
@@ -465,6 +616,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       linearDamping={0.5}
       friction={0.6}
       restitution={0.1}
+      userData={{ id }}
     >
       <CapsuleCollider args={[0.25, 0.24]} />
 

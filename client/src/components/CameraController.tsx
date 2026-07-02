@@ -68,12 +68,27 @@ export const CameraController: React.FC = () => {
     const playerMesh = state.scene.getObjectByName('player-visual');
     if (!playerMesh) return;
 
-    // Get player position
-    const playerPos = new THREE.Vector3();
-    playerMesh.getWorldPosition(playerPos);
+    const playerQualified = useGameStore.getState().playerQualified;
+    let targetMesh = playerMesh;
 
-    // Camera target (look at player's head area)
-    const targetLookAt = playerPos.clone().add(new THREE.Vector3(0, 0.6, 0));
+    if (playerQualified) {
+      const bots: THREE.Object3D[] = [];
+      state.scene.traverse((child) => {
+        if (child.name === 'bot-visual') {
+          bots.push(child);
+        }
+      });
+      if (bots.length > 0) {
+        targetMesh = bots[0];
+      }
+    }
+
+    // Get position of target mesh
+    const targetPos = new THREE.Vector3();
+    targetMesh.getWorldPosition(targetPos);
+
+    // Camera target (look at target's head area)
+    const targetLookAt = targetPos.clone().add(new THREE.Vector3(0, 0.6, 0));
 
     // Calculate camera offset using spherical coordinates
     const offset = new THREE.Vector3();
@@ -91,11 +106,11 @@ export const CameraController: React.FC = () => {
     currentDistance.current += (targetDistance - currentDistance.current) * 0.1;
 
     // Target position of the camera
-    const targetCamPos = playerPos.clone().add(offset);
+    const targetCamPos = targetPos.clone().add(offset);
 
     // Simple camera height buffer so it doesn't clip below floor (e.g. if floor is at y=0, camera stays above y=0.3)
-    if (targetCamPos.y < playerPos.y + 0.3) {
-      targetCamPos.y = playerPos.y + 0.3;
+    if (targetCamPos.y < targetPos.y + 0.3) {
+      targetCamPos.y = targetPos.y + 0.3;
     }
 
     // Smoothly lerp camera position

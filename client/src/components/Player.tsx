@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { useGameControls } from '../hooks/useGameControls';
 import { useGameStore } from '../store/useGameStore';
 import { audioManager } from '../utils/audioManager';
+import { getRacerProgressValue } from '../utils/progress';
 
 export const Player: React.FC = () => {
   const controls = useGameControls();
@@ -16,6 +17,8 @@ export const Player: React.FC = () => {
   const playerName = useGameStore((state) => state.playerName);
   const updateRacerProgress = useGameStore((state) => state.updateRacerProgress);
   const playerQualified = useGameStore((state) => state.playerQualified);
+  const currentLevelId = useGameStore((state) => state.currentLevelId);
+  const scores = useGameStore((state) => state.scores);
 
   // Ref for camera-distance opacity of name label
   const nameLabelRef = useRef<any>(null);
@@ -60,6 +63,8 @@ export const Player: React.FC = () => {
 
   // Phase change sound triggers
   const lastPhase = useRef(phase);
+  const lastQualified = useRef(false);
+
   useEffect(() => {
     if (phase === 'QUALIFIED' && lastPhase.current === 'PLAYING') {
       audioManager.playVictory();
@@ -69,20 +74,42 @@ export const Player: React.FC = () => {
     lastPhase.current = phase;
   }, [phase]);
 
+  useEffect(() => {
+    if (playerQualified && !lastQualified.current) {
+      audioManager.playVictory();
+      lastQualified.current = true;
+    }
+    if (!playerQualified) {
+      lastQualified.current = false;
+    }
+  }, [playerQualified]);
+
   useFrame((state, delta) => {
     if (phase !== 'PLAYING') return;
+
+    const activeControls = {
+      forward: playerQualified ? false : controls.forward,
+      backward: playerQualified ? false : controls.backward,
+      left: playerQualified ? false : controls.left,
+      right: playerQualified ? false : controls.right,
+      jump: playerQualified ? false : controls.jump,
+      dive: playerQualified ? false : controls.dive,
+      grab: playerQualified ? false : controls.grab,
+    };
 
     const rigidBody = rigidBodyRef.current;
     if (!rigidBody) return;
 
     const pos = rigidBody.translation();
+    const progressValue = getRacerProgressValue(currentLevelId, pos);
 
-    // Update live leaderboard progress (throttled to every 6 frames via ref)
+    // Update live leaderboard progress
     updateRacerProgress({
       id: 'player',
       name: playerName || 'You',
-      nodeIndex: 0, // Player uses Z position directly as primary sort key
-      zPos: pos.z,
+      progressValue,
+      yPos: pos.y,
+      score: scores['player'] || 0,
       finished: playerQualified,
     });
 
@@ -127,7 +154,7 @@ export const Player: React.FC = () => {
       jumpCountRef.current = 1; // fell off a ledge, only 1 jump remaining
     }
 
-    const isJumpPressed = controls.jump;
+    const isJumpPressed = activeControls.jump;
     const justPressedJump = isJumpPressed && !wasJumpPressedRef.current;
     wasJumpPressedRef.current = isJumpPressed;
 
@@ -205,7 +232,7 @@ export const Player: React.FC = () => {
 
     if (isDivingRef.current) {
       moveSpeed = 6.8;
-    } else if (controls.grab) {
+    } else if (activeControls.grab) {
       moveSpeed = 2.2;
       isGrabbingRef.current = true;
     } else {
@@ -222,10 +249,10 @@ export const Player: React.FC = () => {
     camRight.crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
 
     const moveDir = new THREE.Vector3(0, 0, 0);
-    if (controls.forward) moveDir.add(camDir);
-    if (controls.backward) moveDir.sub(camDir);
-    if (controls.left) moveDir.add(camRight);
-    if (controls.right) moveDir.sub(camRight);
+    if (activeControls.forward) moveDir.add(camDir);
+    if (activeControls.backward) moveDir.sub(camDir);
+    if (activeControls.left) moveDir.add(camRight);
+    if (activeControls.right) moveDir.sub(camRight);
 
     if (moveDir.lengthSq() > 0) {
       moveDir.normalize();
@@ -237,7 +264,7 @@ export const Player: React.FC = () => {
     let targetZ = moveDir.z * moveSpeed;
 
     // Handle diving trigger
-    if (controls.dive && !isDivingRef.current && diveCooldownRef.current <= 0) {
+    if (activeControls.dive && !isDivingRef.current && diveCooldownRef.current <= 0) {
       isDivingRef.current = true;
       diveTimerRef.current = 0.6;
       diveCooldownRef.current = 1.4;
@@ -312,7 +339,14 @@ export const Player: React.FC = () => {
       rArm.rotation.set(0, 0, -0.1);
       visual.position.y = -0.12;
 
-      if (isDivingRef.current) {
+      if (playerQualified) {
+        // Celebration bounce dance!
+        visual.position.y = -0.12 + Math.abs(Math.sin(clockTime * 12)) * 0.25;
+        lLeg.rotation.x = Math.sin(clockTime * 12) * 0.2;
+        rLeg.rotation.x = -Math.sin(clockTime * 12) * 0.2;
+        lArm.rotation.set(Math.sin(clockTime * 10) * 0.5 - 1.2, 0, 0.4);
+        rArm.rotation.set(Math.sin(clockTime * 10) * 0.5 - 1.2, 0, -0.4);
+      } else if (isDivingRef.current) {
         visual.rotation.x = Math.PI / 2;
         lLeg.rotation.x = 0.5;
         rLeg.rotation.x = 0.5;
