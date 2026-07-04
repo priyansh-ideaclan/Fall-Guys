@@ -38,9 +38,9 @@ const LEVEL_1_LEFT_PATH: [number, number, number][] = [
   [-5.0, 4.5, 92.0], // Slide landing deck (left)
   [-3.0, 4.5, 97.0], // Left bridge plank
   [-3.0, 4.5, 100.0], // Checkpoint 4 (left lane)
-  [-3.0, 4.5, 105.0], // Left lane flat road
-  [-3.0, 4.5, 109.0], // Left side gate
-  [0, 4.5, 114.0]    // Finish Archway
+  [-3.0, 4.5, 107.5], // Left lane flat road (shifted)
+  [-3.0, 4.5, 114.5], // Cannonball section
+  [0, 4.5, 119.0]    // Finish Archway (shifted)
 ];
 
 const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
@@ -69,9 +69,9 @@ const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
   [0.0, 4.5, 92.0],  // Slide landing deck (center)
   [-3.0, 4.5, 97.0], // Left bridge plank (chosen for middle path)
   [0.0, 4.5, 100.0], // Checkpoint 4 (middle lane)
-  [0.0, 4.5, 105.0], // Middle lane road
-  [0.0, 4.5, 109.0], // Middle moving gate
-  [0, 4.5, 114.0]    // Finish Archway
+  [0.0, 4.5, 107.5], // Middle lane road (shifted)
+  [0.0, 4.5, 114.5], // Cannonball section
+  [0, 4.5, 119.0]    // Finish Archway (shifted)
 ];
 
 const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
@@ -97,9 +97,9 @@ const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
   [5.0, 4.5, 92.0],  // Slide landing deck (right)
   [3.0, 4.5, 97.0],  // Right bridge plank
   [3.0, 4.5, 100.0], // Checkpoint 4 (right lane)
-  [3.0, 4.5, 105.0], // Right shortcut entry
-  [3.0, 4.5, 109.0], // Right side gate
-  [0, 4.5, 114.0]    // Finish Archway
+  [3.0, 4.5, 107.5], // Right shortcut entry (shifted)
+  [3.0, 4.5, 114.5], // Cannonball section
+  [0, 4.5, 119.0]    // Finish Archway (shifted)
 ];
 
 const LEVEL_1_NODES = LEVEL_1_MIDDLE_PATH;
@@ -901,6 +901,57 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     // Apply slight upward lift when bot is caught by strong wind
     if (Math.abs(windForceX) > 2.8) {
       moveTargetY += delta * 6.5;
+    }
+
+    // Bot Active Cannonball Dodging steer overlay (Landmarks 37-39, Z = 100 to Z = 115)
+    if (currentLevelId === 'race_1' && pos.z >= 100.0 && pos.z <= 115.0) {
+      const balls: THREE.Object3D[] = [];
+      state.scene.traverse((child) => {
+        if (child.name === 'cannonball') {
+          balls.push(child);
+        }
+      });
+
+      let closestBall: THREE.Object3D | null = null;
+      let minDistance = 9999;
+      balls.forEach((ball) => {
+        const ballPos = new THREE.Vector3();
+        ball.getWorldPosition(ballPos);
+        
+        // Fired in -Z direction, check balls in front (ball.z > pos.z) up to 8.0m away due to increased speed
+        if (ballPos.z > pos.z && ballPos.z - pos.z < 8.0) {
+          const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(ballPos);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestBall = ball;
+          }
+        }
+      });
+
+      if (closestBall) {
+        // Calculate hash of ID for stable per-bot reaction
+        const botHash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 100;
+        const failThreshold = difficulty === 'EASY' ? 50 : difficulty === 'MEDIUM' ? 24 : 5;
+        const willDodge = botHash >= failThreshold;
+
+        if (willDodge) {
+          const ballPos = new THREE.Vector3();
+          (closestBall as THREE.Object3D).getWorldPosition(ballPos);
+          
+          // Steer away on the X axis from the ball's current X coordinate
+          const steerSide = ballPos.x > pos.x ? -1.0 : 1.0;
+          const dodgeStrength = difficulty === 'HARD' ? 6.2 : 5.4;
+          moveTargetX = steerSide * dodgeStrength;
+          
+          // Prevent steering off the side edges (platform bounds are X = -8.0 to +8.0)
+          if (pos.x < -6.8) moveTargetX = 3.5;
+          else if (pos.x > 6.8) moveTargetX = -3.5;
+
+          // Accelerate Z to run past the hazard area
+          moveTargetZ = activeSpeed * 1.25;
+          accelerationRatio = 0.35; // snappy reaction response
+        }
+      }
     }
 
     if (shouldJump && jumpCooldown.current <= 0 && jumpCountRef.current < 2) {

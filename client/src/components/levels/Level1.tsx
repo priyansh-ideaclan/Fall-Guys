@@ -31,7 +31,8 @@ import {
   BumpyPillar,
   CurvedSlide,
   StartLine,
-  GoalLine
+  GoalLine,
+  CannonSectionManager
 } from '../LevelObstacles';
 import { useGameStore } from '../../store/useGameStore';
 import { getThemeConfig } from '../../utils/themeManager';
@@ -560,48 +561,72 @@ export const Level1: React.FC = () => {
       <DecorativeTree position={[9.5, 4.5, 90.0]} type="candy" variant="candy-blue" scale={1.0} />
 
 
-      {/* ── SECTION 5: FINAL SPRINT & BOUNCERS (DESERT ZONE) (Z = 100 to Z = 131) ── */}
+      {/* ── SECTION 5: FINAL SPRINT & CANNONBALL DODGE ZONE (Z = 100 to Z = 123) ── */}
       <Checkpoint position={[0, 4.5, 100.0]} id={4} />
       <ConfettiCannon position={[-5.5, 4.5, 100.0]} active={isCp4Active} />
       <ConfettiCannon position={[5.5, 4.5, 100.0]} active={isCp4Active} />
 
-      {/* Flat sprint road */}
+      {/* Enlarged Flat Sprint & Dodge Platform (16m wide, 15m deep) */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[6.0, 0.4, 5.0]} position={[0, 4.1, 105.0]} />
-        <mesh receiveShadow position={[0, 4.1, 105.0]}>
-          <boxGeometry args={[12.0, 0.8, 10.0]} />
+        <CuboidCollider args={[8.0, 0.4, 7.5]} position={[0, 4.1, 107.5]} />
+        <mesh receiveShadow position={[0, 4.1, 107.5]}>
+          <boxGeometry args={[16.0, 0.8, 15.0]} />
           <meshStandardMaterial color="#e4a853" roughness={0.8} />
         </mesh>
       </RigidBody>
-      
-      {/* Speed Boost pads */}
-      <SpeedPad position={[-3.0, 4.52, 104.0]} />
-      <SpeedPad position={[0.0, 4.52, 104.0]} />
-      <SpeedPad position={[3.0, 4.52, 104.0]} />
 
-      {/* Moving gates obstacle - Dual Gates side-by-side */}
-      <MovingPlatform position={[-3.0, 5.2, 109.0]} size={[5.6, 1.2, 0.3]} direction="y" range={1.5} speed={2.2} color={config.obstacleColor1} />
-      <MovingPlatform position={[3.0, 5.2, 109.0]} size={[5.6, 1.2, 0.3]} direction="y" range={1.5} speed={1.8} color={config.obstacleColor1} />
+      {/* Side Guard Rail Barriers to contain cannonballs, players, and bots, allowing diagonal bounces */}
+      <RigidBody type="fixed" colliders="cuboid" friction={0.1} restitution={0.88}>
+        {/* Left Guard Rail */}
+        <mesh position={[-8.0, 4.5, 107.5]} castShadow receiveShadow>
+          <boxGeometry args={[0.3, 0.8, 15.0]} />
+          <meshStandardMaterial color="#ffd60a" roughness={0.4} metalness={0.2} />
+        </mesh>
+        <mesh position={[-8.0, 4.95, 107.5]}>
+          <boxGeometry args={[0.34, 0.1, 15.0]} />
+          <meshStandardMaterial color="#ff5722" roughness={0.2} emissive="#ff5722" emissiveIntensity={0.2} />
+        </mesh>
+
+        {/* Right Guard Rail */}
+        <mesh position={[8.0, 4.5, 107.5]} castShadow receiveShadow>
+          <boxGeometry args={[0.3, 0.8, 15.0]} />
+          <meshStandardMaterial color="#ffd60a" roughness={0.4} metalness={0.2} />
+        </mesh>
+        <mesh position={[8.0, 4.95, 107.5]}>
+          <boxGeometry args={[0.34, 0.1, 15.0]} />
+          <meshStandardMaterial color="#ff5722" roughness={0.2} emissive="#ff5722" emissiveIntensity={0.2} />
+        </mesh>
+      </RigidBody>
+      
+
+
+      {/* Moving gates obstacle - Three Gates side-by-side to cover 16m wide platform */}
+      <MovingPlatform position={[-5.0, 5.2, 108.5]} size={[4.8, 1.2, 0.3]} direction="y" range={1.5} speed={2.2} color={config.obstacleColor1} />
+      <MovingPlatform position={[0.0, 5.2, 108.5]} size={[4.8, 1.2, 0.3]} direction="y" range={1.5} speed={1.8} color={config.obstacleColor1} />
+      <MovingPlatform position={[5.0, 5.2, 108.5]} size={[4.8, 1.2, 0.3]} direction="y" range={1.5} speed={2.0} color={config.obstacleColor1} />
+
+      {/* Cannon Section Obstacle: Spawns balls when crossing Checkpoint 4 (Z=100) */}
+      <CannonSectionManager sensorZ={100.0} launcherZ={114.5} />
 
       {/* Desert Ruins Scenery details */}
-      <DecorativeRuins position={[-8.0, 4.5, 106.0]} type="broken-pillar" scale={0.7} />
-      <DecorativeRuins position={[8.0, 4.5, 103.0]} type="pillar" scale={0.8} />
-      <DecorativeTree position={[-7.5, 4.5, 112.0]} type="candy" variant="candy-yellow" scale={1.1} />
-      <DecorativeTree position={[7.5, 4.5, 112.0]} type="candy" variant="candy-pink" scale={1.0} />
+      <DecorativeRuins position={[-10.0, 4.5, 106.0]} type="broken-pillar" scale={0.7} />
+      <DecorativeRuins position={[10.0, 4.5, 103.0]} type="pillar" scale={0.8} />
+      <DecorativeTree position={[-9.5, 4.5, 112.0]} type="candy" variant="candy-yellow" scale={1.1} />
+      <DecorativeTree position={[9.5, 4.5, 112.0]} type="candy" variant="candy-pink" scale={1.0} />
 
       {/* ── GOAL LINE ARCH & CHECKERED FLOOR ── */}
-      <GoalLine position={[0, 4.1, 114.0]} width={14} />
+      <GoalLine position={[0, 4.1, 119.0]} width={14} />
 
       {/* Finish platform solid physics floor - placed directly adjacent to the final sprint deck */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[7.0, 0.4, 4.0]} position={[0, 4.1, 114.0]} />
-        <mesh receiveShadow position={[0, 4.1, 114.0]}>
+        <CuboidCollider args={[7.0, 0.4, 4.0]} position={[0, 4.1, 119.0]} />
+        <mesh receiveShadow position={[0, 4.1, 119.0]}>
           <boxGeometry args={[14.0, 0.8, 8.0]} />
           <meshStandardMaterial color="#2e8b57" roughness={0.6} />
         </mesh>
       </RigidBody>
-      <WavingFlag position={[-7.5, 4.5, 116.5]} color="#ff007f" />
-      <WavingFlag position={[7.5, 4.5, 116.5]} color="#00e5ff" />
+      <WavingFlag position={[-7.5, 4.5, 121.5]} color="#ff007f" />
+      <WavingFlag position={[7.5, 4.5, 121.5]} color="#00e5ff" />
 
       {/* Finish trigger sensor – positioned on the checkered line */}
       <RigidBody type="fixed" colliders={false}>
@@ -609,7 +634,7 @@ export const Level1: React.FC = () => {
           args={[6.8, 1.5, 0.2]} 
           sensor 
           onIntersectionEnter={handleFinish} 
-          position={[0, 5.5, 114.0]} 
+          position={[0, 5.5, 119.0]} 
         />
       </RigidBody>
 

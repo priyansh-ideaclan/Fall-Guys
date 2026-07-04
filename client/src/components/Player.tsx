@@ -732,6 +732,19 @@ export const Player: React.FC = () => {
           knockbackTimerRef.current = 0.5;
           audioManager.playCollision(); // Play bonk sound effect!
           useGameStore.getState().triggerSplash([playerPos.x, playerPos.y, playerPos.z], '#ff007f'); // Pink splash!
+        } else if (other && other.name === 'cannonball') {
+          const playerPos = rigidBodyRef.current!.translation();
+          const otherWorldPos = new THREE.Vector3();
+          other.getWorldPosition(otherWorldPos);
+          
+          // Push player radially away from the center of the cannonball
+          const dir = new THREE.Vector3(playerPos.x - otherWorldPos.x, 0.25, playerPos.z - otherWorldPos.z).normalize();
+          dir.y = 0.28; // high upward lift
+          
+          knockbackVelRef.current.copy(dir).multiplyScalar(13.8); // strong knockback force!
+          knockbackTimerRef.current = 0.55;
+          audioManager.playCollision(); // Play bonk sound effect!
+          useGameStore.getState().triggerSplash([playerPos.x, playerPos.y, playerPos.z], '#ffaa00'); // Orange splash!
         }
       }}
     >

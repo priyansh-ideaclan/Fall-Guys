@@ -2825,3 +2825,209 @@ export const GoalLine: React.FC<GoalLineProps> = ({
   );
 };
 
+
+// ─── Cannon Ball Launchers & Section Manager ───────────────────────────────
+
+interface CannonSectionManagerProps {
+  sensorZ: number;
+  launcherZ: number;
+}
+
+export const CannonSectionManager: React.FC<CannonSectionManagerProps> = ({ sensorZ = 100.0, launcherZ = 114.5 }) => {
+  const [active, setActive] = useState(false);
+  const [cannonballs, setCannonballs] = useState<Array<{ id: number; position: [number, number, number]; velocity: [number, number, number]; spawnTime: number }>>([]);
+  
+  const nextFireTime = useRef(0);
+  const counter = useRef(0);
+  const barrelRefs = useRef<Array<THREE.Group | null>>([null, null, null]);
+
+  const phase = useGameStore((state) => state.phase);
+  
+  useEffect(() => {
+    if (phase !== 'PLAYING') {
+      setActive(false);
+      setCannonballs([]);
+    }
+  }, [phase]);
+
+  // Procedural cannon swing angle logic (aims ±25° left/right)
+  const getCannonAngle = (idx: number, t: number) => {
+    // Unique speed and phase for each cannon to keep them unsynchronized
+    const speed = idx === 0 ? 1.4 : idx === 1 ? 0.95 : 1.25;
+    const phaseOffset = idx === 0 ? 0.0 : idx === 1 ? Math.PI / 3 : Math.PI / 1.5;
+    const maxAngle = 0.44; // ~25 degrees
+
+    // Slow secondary modulator to simulate organic pausing/reversing
+    const modulation = Math.sin(t * 0.28 + idx * 2.0);
+
+    let angle = Math.sin(t * speed + phaseOffset) * maxAngle;
+    
+    // Slow down/pause swing if modulation is near zero
+    if (Math.abs(modulation) < 0.22) {
+      angle *= 0.3;
+    }
+    
+    return angle;
+  };
+
+  useFrame((state, delta) => {
+    const clockTime = state.clock.getElapsedTime();
+
+    // 1. Update visual barrel swings at 60fps using direct refs
+    for (let i = 0; i < 3; i++) {
+      const barrel = barrelRefs.current[i];
+      if (barrel) {
+        barrel.rotation.y = getCannonAngle(i, clockTime);
+      }
+    }
+
+    if (!active || phase !== 'PLAYING') return;
+
+    // 2. Firing routine
+    nextFireTime.current -= delta;
+    if (nextFireTime.current <= 0) {
+      // High-intensity random intervals
+      nextFireTime.current = 0.9 + Math.random() * 1.1;
+
+      const launchers = [-4.5, 0.0, 4.5];
+      const fireSelection: number[] = [];
+      const roll = Math.random();
+
+      if (roll < 0.12) {
+        // All 3 cannons fire simultaneously!
+        fireSelection.push(0, 1, 2);
+      } else if (roll < 0.42) {
+        // 2 cannons fire simultaneously!
+        const first = Math.floor(Math.random() * 3);
+        const second = (first + 1 + Math.floor(Math.random() * 2)) % 3;
+        fireSelection.push(first, second);
+      } else {
+        // Fire exactly 1 cannon
+        fireSelection.push(Math.floor(Math.random() * 3));
+      }
+
+      const now = state.clock.getElapsedTime();
+      const newBalls = fireSelection.map((idx) => {
+        const fireX = launchers[idx];
+        const theta = getCannonAngle(idx, now);
+        
+        counter.current++;
+        
+        // Speed boosted trajectory (was -12 to -17, now is -18.5 to -25.5)
+        const launchSpeed = 18.5 + Math.random() * 7.0;
+        
+        // Firing vectors aligned with current aiming angle theta
+        const vx = Math.sin(theta) * launchSpeed;
+        const vz = -Math.cos(theta) * launchSpeed; // firing in -Z direction
+        const vy = 1.6 + Math.random() * 2.4;     // initial upward arc for bounce
+
+        // Offset start muzzle position along aimed direction
+        const offset = 0.6;
+        const startX = fireX + Math.sin(theta) * offset;
+        const startZ = (launcherZ - 0.6) - Math.cos(theta) * offset;
+
+        return {
+          id: counter.current,
+          position: [startX, 4.8, startZ] as [number, number, number],
+          velocity: [vx, vy, vz] as [number, number, number],
+          spawnTime: now
+        };
+      });
+
+      setCannonballs(prev => [...prev, ...newBalls]);
+
+      // Play blast sound
+      audioManager.playJump?.();
+    }
+
+    // 3. Clean up old cannonballs after 4.2s of lifetime
+    const elapsed = state.clock.getElapsedTime();
+    setCannonballs(prev => prev.filter(ball => elapsed - ball.spawnTime < 4.2));
+  });
+
+  return (
+    <group>
+      {/* Activation Sensor at Z = sensorZ */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider
+          args={[8.0, 3.0, 0.2]} // full width of platform (16m total, half-width = 8)
+          sensor
+          position={[0, 4.8, sensorZ]}
+          onIntersectionEnter={(event) => {
+            const other = event.other.rigidBodyObject;
+            if (other && (other.name === 'player' || other.name === 'bot')) {
+              setActive(true);
+            }
+          }}
+        />
+      </RigidBody>
+
+      {/* Renders three launcher models facing -Z (angle Math.PI) with swinging barrels */}
+      {[-4.5, 0.0, 4.5].map((x, i) => (
+        <group key={`cannon-${i}`} position={[x, 4.1, launcherZ]} rotation={[0, Math.PI, 0]}>
+          {/* Base stand */}
+          <mesh castShadow receiveShadow position={[0, 0.25, 0]}>
+            <boxGeometry args={[0.9, 0.5, 0.8]} />
+            <meshStandardMaterial color="#4f5b66" roughness={0.4} metalness={0.6} />
+          </mesh>
+          {/* Side mounts */}
+          <mesh castShadow position={[-0.5, 0.55, 0]}>
+            <boxGeometry args={[0.12, 0.6, 0.3]} />
+            <meshStandardMaterial color="#343d46" roughness={0.3} metalness={0.7} />
+          </mesh>
+          <mesh castShadow position={[0.5, 0.55, 0]}>
+            <boxGeometry args={[0.12, 0.6, 0.3]} />
+            <meshStandardMaterial color="#343d46" roughness={0.3} metalness={0.7} />
+          </mesh>
+          {/* Cannon Barrel - tilted upwards slightly and swinging left/right */}
+          <group 
+            ref={el => { barrelRefs.current[i] = el; }} 
+            position={[0, 0.6, 0]} 
+            rotation={[0.22, 0, 0]}
+          >
+            <mesh castShadow>
+              <cylinderGeometry args={[0.32, 0.38, 1.1, 16]} />
+              <meshStandardMaterial color="#1a202c" roughness={0.2} metalness={0.9} />
+            </mesh>
+            {/* Glowing fuse */}
+            <mesh position={[0, -0.56, 0]}>
+              <sphereGeometry args={[0.1, 8, 8]} />
+              <meshStandardMaterial color="#ffd60a" emissive="#ffd60a" emissiveIntensity={1.0} />
+            </mesh>
+            {/* Golden ring trim at the tip */}
+            <mesh position={[0, 0.54, 0]}>
+              <torusGeometry args={[0.34, 0.05, 8, 16]} />
+              <meshStandardMaterial color="#ffaa00" roughness={0.1} metalness={0.8} />
+            </mesh>
+          </group>
+        </group>
+      ))}
+
+      {/* Dynamic Cannonballs */}
+      {cannonballs.map(ball => (
+        <RigidBody
+          key={ball.id}
+          type="dynamic"
+          colliders="ball"
+          name="cannonball"
+          position={ball.position}
+          linearVelocity={ball.velocity}
+          restitution={0.82}
+          friction={0.08}
+        >
+          <mesh castShadow receiveShadow name="cannonball-mesh">
+            <sphereGeometry args={[0.42, 16, 16]} />
+            <meshStandardMaterial
+              color="#2a303c"
+              roughness={0.2}
+              metalness={0.8}
+              emissive="#1a202c"
+              emissiveIntensity={0.2}
+            />
+          </mesh>
+        </RigidBody>
+      ))}
+    </group>
+  );
+};
+
