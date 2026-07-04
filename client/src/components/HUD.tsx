@@ -10,15 +10,9 @@ import { LEVEL_1_LANDMARKS } from '../utils/landmarks';
 // ─── Level display names ──────────────────────────────────────────────────────
 const LEVEL_NAMES: Record<string, string> = {
   'race_1':     'Round 1 · Race',
-  'race_2':     'Round 1 · Race',
-  'race_3':     'Round 1 · Race',
   'survival_1': 'Round 2 · Survival',
-  'survival_2': 'Round 2 · Survival',
   'logic_1':    'Round 3 · Memory Tiles',
-  'logic_2':    'Round 3 · Gate Maze',
-  'hunt_1':     'Round 4 · Star Hunt',
-  'final_1':    'FINAL · Honeycomb Collapse',
-  'final_2':    'FINAL · Crown Peak Climb',
+  'survival_2': 'Round 4 · Hex-A-Terrestrial',
 };
 
 const MODE_ICONS: Record<string, React.ReactNode> = {
@@ -79,6 +73,7 @@ export const HUD: React.FC = () => {
     isNitroActive,
     nitroCooldown,
     botsEnabled,
+    isPlayerEliminated,
   } = useGameStore();
   const {
     playlist,
@@ -501,7 +496,7 @@ export const HUD: React.FC = () => {
 
             {/* Round indicator + FPS */}
             <div className="glass-panel" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', gap: '2px', fontWeight: 600 }}>
-              <div>RND <span style={{ color: modeColor, fontWeight: 800 }}>{currentRound}/5</span></div>
+              <div>RND <span style={{ color: modeColor, fontWeight: 800 }}>{currentRound}/4</span></div>
               <div>FPS <span style={{ color: 'var(--yellow)', fontWeight: 800 }}>{fps}</span></div>
             </div>
 
@@ -882,6 +877,48 @@ export const HUD: React.FC = () => {
               {LEVEL_1_LANDMARKS[devLandmarkIndex]?.section || 'Unknown'}
             </strong>
           </div>
+        </div>
+      )}
+
+      {/* ── SPECTATOR OVERLAY ────────────────── */}
+      {isPlayerEliminated && phase === 'PLAYING' && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '6px',
+          pointerEvents: 'none',
+          zIndex: 1001
+        }}>
+          <div className="glass-panel pulse-animation" style={{
+            padding: '12px 24px',
+            border: '2px solid var(--primary)',
+            boxShadow: '0 0 15px var(--primary-glow)',
+            color: 'white',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            fontSize: '1.1rem',
+            textAlign: 'center',
+            background: 'rgba(255, 0, 85, 0.4)'
+          }}>
+            💀 YOU WERE ELIMINATED!
+          </div>
+          {activeBots.length > 0 && (
+            <div className="glass-panel" style={{
+              padding: '6px 16px',
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em'
+            }}>
+              🎥 Spectating: <span style={{ color: 'var(--cyan)', fontWeight: 800 }}>{activeBots[0].name}</span>
+            </div>
+          )}
         </div>
       )}
 

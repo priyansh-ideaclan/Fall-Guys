@@ -162,6 +162,11 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   const botSpeed = useRef(difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.2 : 4.9);
   const botPath = useRef<[number, number, number][]>(LEVEL_1_MIDDLE_PATH);
   const windmillMistakeFlag = useRef<boolean | null>(null);
+  
+  // Hex-A-Terrestrial refs
+  const lastSelectedHexId = useRef<string | null>(null);
+  const hexTargetPos = useRef<THREE.Vector3 | null>(null);
+  const scanCooldown = useRef(0);
 
   // Personality & reaction time overhaul
   const reactionTimeRef = useRef(0);
@@ -764,6 +769,140 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
       steerDir.y = 0;
       steerDir.normalize();
+    } else if (currentLevelId === 'survival_2') {
+      // Hex-A-Terrestrial: smart local tile-seeking logic with target validation
+      let targetStillActive = false;
+      if (lastSelectedHexId.current) {
+        state.scene.traverse((child) => {
+          if (child.name === 'hextile' && child.userData && child.userData.id === lastSelectedHexId.current) {
+            if (child.userData.state === 'active') {
+              targetStillActive = true;
+            }
+          }
+        });
+      }
+
+      const targetPosVal = hexTargetPos.current;
+      const distToTarget = targetPosVal ? new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(targetPosVal) : Infinity;
+      const forceScan = !targetStillActive || distToTarget < 0.55;
+      if (scanCooldown.current <= 0 || !hexTargetPos.current || forceScan) {
+        const scanFreq = difficulty === 'HARD' ? 0.08 : difficulty === 'MEDIUM' ? 0.16 : 0.25;
+        scanCooldown.current = scanFreq;
+
+        let bestTile: THREE.Object3D | null = null;
+        let bestScore = -Infinity;
+
+        const activeTiles: Array<{ obj: THREE.Object3D; pos: THREE.Vector3; id: string; state: string; y: number }> = [];
+        state.scene.traverse((child) => {
+          if (child.name === 'hextile' && child.userData && child.userData.state === 'active') {
+            const worldPos = new THREE.Vector3();
+            child.getWorldPosition(worldPos);
+            activeTiles.push({
+              obj: child,
+              pos: worldPos,
+              id: child.userData.id,
+              state: child.userData.state,
+              y: worldPos.y
+            });
+          }
+        });
+
+        const maxRange = difficulty === 'HARD' ? 3.0 : 2.2;
+        const botHeight = pos.y;
+
+        const candidates = activeTiles.filter((tile) => {
+          const dx = tile.pos.x - pos.x;
+          const dz = tile.pos.z - pos.z;
+          const distXZ = Math.sqrt(dx * dx + dz * dz);
+          const isValidHeight = tile.pos.y <= botHeight + 0.5 && tile.pos.y >= botHeight - 4.5;
+          return distXZ <= maxRange && isValidHeight;
+        });
+
+        if (candidates.length > 0) {
+          candidates.forEach((tile) => {
+            const dx = tile.pos.x - pos.x;
+            const dz = tile.pos.z - pos.z;
+            const distXZ = Math.sqrt(dx * dx + dz * dz);
+            
+            let score = -distXZ * 0.5;
+            score += tile.pos.y * 3.5; // strongly prefer staying on higher tiers
+
+            let neighborCount = 0;
+            activeTiles.forEach((other) => {
+              if (other.id === tile.id) return;
+              if (Math.abs(other.y - tile.y) > 0.5) return;
+              const ndx = other.pos.x - tile.pos.x;
+              const ndz = other.pos.z - tile.pos.z;
+              const ndist = Math.sqrt(ndx * ndx + ndz * ndz);
+              if (ndist <= 2.2) {
+                neighborCount++;
+              }
+            });
+            score += neighborCount * 3.0;
+
+            if (personalityRef.current === 'AGGRESSIVE' || personalityRef.current === 'RISKY') {
+              const playerObj = state.scene.getObjectByName('player-visual');
+              if (playerObj) {
+                const playerPos = new THREE.Vector3();
+                playerObj.getWorldPosition(playerPos);
+                const pDist = tile.pos.distanceTo(playerPos);
+                if (pDist < 2.5) {
+                  score += 2.0; // waddle towards player paths to cut them off
+                }
+              }
+            }
+
+            const mistakeRate = difficulty === 'EASY' ? 1.5 : difficulty === 'MEDIUM' ? 0.4 : 0.08;
+            score += (Math.random() - 0.5) * mistakeRate;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestTile = tile.obj;
+            }
+          });
+        }
+
+        if (!bestTile && activeTiles.length > 0) {
+          let closestTile = activeTiles[0];
+          let minD = Infinity;
+          activeTiles.forEach((tile) => {
+            if (tile.y <= botHeight + 0.2) {
+              const d = tile.pos.distanceTo(new THREE.Vector3(pos.x, pos.y, pos.z));
+              if (d < minD) {
+                minD = d;
+                closestTile = tile;
+              }
+            }
+          });
+          bestTile = closestTile.obj;
+        }
+
+        if (bestTile) {
+          const worldP = new THREE.Vector3();
+          (bestTile as THREE.Object3D).getWorldPosition(worldP);
+          hexTargetPos.current = worldP;
+          lastSelectedHexId.current = (bestTile as THREE.Object3D).userData?.id;
+        }
+      } else {
+        scanCooldown.current -= delta;
+      }
+
+      if (hexTargetPos.current) {
+        const target = hexTargetPos.current;
+        steerDir.subVectors(target, new THREE.Vector3(pos.x, pos.y, pos.z));
+        steerDir.y = 0;
+        steerDir.normalize();
+
+        const flatDist = new THREE.Vector2(pos.x - target.x, pos.z - target.z).length();
+        const isTargetBelow = target.y < pos.y - 0.3;
+        const minJumpDist = isTargetBelow ? 1.8 : 1.1;
+        if (flatDist >= minJumpDist && flatDist <= 2.8 && isGroundedRef.current && jumpCooldown.current <= 0) {
+          const jumpChance = difficulty === 'EASY' ? 0.65 : 0.95;
+          if (Math.random() < jumpChance) {
+            shouldJump = true;
+          }
+        }
+      }
     }
 
     // Add waddle steering drift
@@ -847,17 +986,6 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       }
       // Vertical climb Storey 3 -> Storey 4
       if (pos.z > 77.5 && pos.z < 80.0 && jumpCooldown.current <= 0) {
-        shouldJump = true;
-      }
-    } else if (currentLevelId === 'race_2') {
-      if (pos.z > 69.5 && pos.z < 72.5 && Math.abs(pos.x) < 1.0 && jumpCooldown.current <= 0) {
-        shouldJump = true;
-      }
-    } else if (currentLevelId === 'final_2') {
-      if (pos.z > 16.5 && pos.z < 19.5 && jumpCooldown.current <= 0) {
-        shouldJump = true;
-      }
-      if (pos.z > 22.5 && pos.z < 25.5 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
     }

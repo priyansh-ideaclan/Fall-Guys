@@ -55,6 +55,7 @@ interface GameState {
   botQualifyingLimit: number;
   playerQualified: boolean;
   cinematicActive: boolean;
+  isPlayerEliminated: boolean;
 
   // Legacy campaign variables
   currentLevelIndex: number;
@@ -135,21 +136,10 @@ const THEMES: VisualTheme[] = ['SKY_BLUE', 'SUNSET_ORANGE', 'PURPLE_NEON', 'CAND
 
 // Starting spawn points for each level type
 const SPAWN_POINTS: Record<string, [number, number, number]> = {
-  // Race Levels
   'race_1': [0, 0.4, 0],
-  'race_2': [0, 0.4, 0],
-  'race_3': [0, 0.4, 0],
-  // Survival Levels
-  'survival_1': [0, 0.4, 0],
-  'survival_2': [0, 0.4, 0],
-  // Logic Levels
-  'logic_1': [0, 2.1, -5.8],
-  'logic_2': [0, 0.4, 0],
-  // Hunt Levels
-  'hunt_1': [0, 0.4, 0],
-  // Final Levels
-  'final_1': [0, 9.8, 0],
-  'final_2': [0, 0.4, 0],
+  'survival_1': [0, 1.2, 0],
+  'logic_1': [0, 0.4, -5.8],
+  'survival_2': [0, 8.5, 0],
 };
 
 const getStoredNumber = (key: string, fallback: number): number => {
@@ -164,13 +154,13 @@ const getStoredBoolean = (key: string, fallback: boolean): boolean => {
 
 // Available levels by category
 const RACE_LEVELS = ['race_1'];
-const SURVIVAL_LEVELS = ['survival_1'];
+const SURVIVAL_LEVELS = ['survival_1', 'survival_2'];
 const LOGIC_LEVELS = ['logic_1'];
 const HUNT_LEVELS: string[] = [];
 const FINAL_LEVELS: string[] = [];
 
-// Fixed 3-round tournament progression
-// Round: 1=Race, 2=Survival, 3=Logic (Final Showdown)
+// Fixed 4-round tournament progression
+// Round: 1=Race, 2=Survival, 3=Logic, 4=Survival (Final Showdown)
 const ROUND_PROGRESSION: Array<{
   levelId: string;
   type: LevelType;
@@ -189,20 +179,27 @@ const ROUND_PROGRESSION: Array<{
     levelId: 'survival_1',
     type: 'SURVIVAL',
     objective: 'Stay alive on the spinning arena! Don\'t fall off!',
-    qualifyLimit: 4,
+    qualifyLimit: 6,
     timeLimit: 30,
   },
   {
     levelId: 'logic_1',
     type: 'LOGIC',
-    objective: 'Stand on the correct color tile before the wrong ones drop! Final racer wins!',
-    qualifyLimit: 1,
+    objective: 'Stand on the correct color tile before the wrong ones drop!',
+    qualifyLimit: 4,
     timeLimit: 42,
+  },
+  {
+    levelId: 'survival_2',
+    type: 'SURVIVAL',
+    objective: 'Last player standing wins! The floor collapses beneath your feet!',
+    qualifyLimit: 1,
+    timeLimit: 90,
   },
 ];
 
-// Map campaign level select index (0-2) to level IDs
-const CAMPAIGN_LEVEL_IDS = ['race_1', 'survival_1', 'logic_1'];
+// Map campaign level select index (0-3) to level IDs
+const CAMPAIGN_LEVEL_IDS = ['race_1', 'survival_1', 'logic_1', 'survival_2'];
 
 export const useGameStore = create<GameState>((set, get) => ({
   phase: 'MENU',
@@ -234,6 +231,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   botQualifyingLimit: 8,
   playerQualified: false,
   cinematicActive: false,
+  isPlayerEliminated: false,
 
   levelSeed: 0.5,
   visualTheme: 'SKY_BLUE',
@@ -365,6 +363,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       levelSeed: Math.random(),
       phase: 'ROUND_INTRO',
       cinematicActive: true,
+      isPlayerEliminated: false,
       startTime: null,
       timeElapsed: 0,
       roundTimer: 0,
@@ -441,8 +440,20 @@ export const useGameStore = create<GameState>((set, get) => ({
   eliminateRacer: (id) => set((state) => {
     if (state.phase !== 'PLAYING') return {};
 
-    // If player falls in Survival or Logic, it's instant Game Over
     if (id === 'player') {
+      if (state.currentLevelId === 'survival_2') {
+        const totalRemainingBots = state.activeBots.length;
+        if (totalRemainingBots <= 1) {
+          return {
+            isPlayerEliminated: true,
+            phase: 'GAMEOVER',
+            failures: state.failures + 1
+          };
+        }
+        return {
+          isPlayerEliminated: true
+        };
+      }
       return {
         phase: 'GAMEOVER',
         failures: state.failures + 1
@@ -450,9 +461,43 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
 
     // Bots just get filtered out
+    const nextBots = state.activeBots.filter(b => b.id !== id);
+    const nextEliminated = [...state.eliminatedBots, id];
+
+    if (state.currentLevelId === 'survival_2') {
+      const playerAlive = !state.isPlayerEliminated;
+      const totalRemaining = nextBots.length + (playerAlive ? 1 : 0);
+
+      if (totalRemaining === 1) {
+        if (playerAlive) {
+          const nextPhase = state.tournamentActive ? 'VICTORY' : 'QUALIFIED';
+          return {
+            activeBots: nextBots,
+            eliminatedBots: nextEliminated,
+            playerQualified: true,
+            winnersList: ['player'],
+            phase: nextPhase,
+            wins: nextPhase === 'VICTORY' || nextPhase === 'QUALIFIED' ? state.wins + 1 : state.wins
+          };
+        } else {
+          return {
+            activeBots: nextBots,
+            eliminatedBots: nextEliminated,
+            phase: 'GAMEOVER'
+          };
+        }
+      } else if (totalRemaining === 0) {
+        return {
+          activeBots: nextBots,
+          eliminatedBots: nextEliminated,
+          phase: 'GAMEOVER'
+        };
+      }
+    }
+
     return {
-      activeBots: state.activeBots.filter(b => b.id !== id),
-      eliminatedBots: [...state.eliminatedBots, id],
+      activeBots: nextBots,
+      eliminatedBots: nextEliminated,
     };
   }),
 
@@ -498,6 +543,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       levelSeed: Math.random(),
       phase: 'ROUND_INTRO',
       cinematicActive: true,
+      isPlayerEliminated: false,
       startTime: null,
       timeElapsed: 0,
     });
@@ -601,14 +647,26 @@ export const useGameStore = create<GameState>((set, get) => ({
           const { activeBots, scores, playerQualified, winnersList, botQualifyingLimit } = get();
           
           if (currentLevelType === 'SURVIVAL' || currentLevelType === 'LOGIC') {
-            // Everyone still in the arena qualifies!
-            const playerOk = true; // Player survived!
-            const botIds = activeBots.map(b => b.id);
-            set({
-              playerQualified: playerOk,
-              winnersList: [...winnersList, 'player', ...botIds],
-              phase: 'ROUND_OUTCOME',
-            });
+            if (get().currentLevelId === 'survival_2') {
+              const playerAlive = !get().isPlayerEliminated;
+              const nextPhase = playerAlive ? (get().tournamentActive ? 'VICTORY' : 'QUALIFIED') : 'GAMEOVER';
+              set({
+                playerQualified: playerAlive,
+                winnersList: playerAlive ? ['player'] : [],
+                phase: nextPhase,
+                wins: playerAlive ? get().wins + 1 : get().wins,
+                failures: playerAlive ? get().failures : get().failures + 1
+              });
+            } else {
+              // Everyone still in the arena qualifies!
+              const playerOk = true; // Player survived!
+              const botIds = activeBots.map(b => b.id);
+              set({
+                playerQualified: playerOk,
+                winnersList: [...winnersList, 'player', ...botIds],
+                phase: 'ROUND_OUTCOME',
+              });
+            }
           } else if (currentLevelType === 'HUNT') {
             // Qualify the top players by score
             const racers = [
@@ -668,6 +726,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       phase: 'ROUND_INTRO',
       cinematicActive: true,
+      isPlayerEliminated: false,
       tournamentActive: false,
       currentLevelId: levelId,
       currentLevelType: roundConfig.type,
@@ -690,7 +749,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   selectLevel: (index) => {
-    const sanitizedIndex = Math.max(0, Math.min(4, index));
+    const sanitizedIndex = Math.max(0, Math.min(3, index));
     const levelId = CAMPAIGN_LEVEL_IDS[sanitizedIndex] || 'race_1';
     set({ 
       currentLevelIndex: sanitizedIndex,

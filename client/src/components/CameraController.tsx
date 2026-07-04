@@ -178,12 +178,25 @@ export const CameraController: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────
   useFrame((state, delta) => {
     const playerMesh = state.scene.getObjectByName('player-visual');
-    if (!playerMesh) return;
+    const isPlayerEliminated = useGameStore.getState().isPlayerEliminated;
+    const activeBots = useGameStore.getState().activeBots;
 
-    const playerQualified = useGameStore.getState().playerQualified;
-
-    // Keep camera targeted on player mesh throughout finish celebration
     let targetMesh = playerMesh;
+
+    if (isPlayerEliminated && activeBots.length > 0) {
+      const spectateId = activeBots[0].id;
+      let spectatedBotMesh: THREE.Object3D | null = null;
+      state.scene.traverse((child) => {
+        if (child.userData && child.userData.id === spectateId) {
+          spectatedBotMesh = child;
+        }
+      });
+      if (spectatedBotMesh) {
+        targetMesh = spectatedBotMesh;
+      }
+    }
+
+    if (!targetMesh) return;
 
     const playerPos = new THREE.Vector3();
     targetMesh.getWorldPosition(playerPos);
@@ -286,7 +299,12 @@ export const CameraController: React.FC = () => {
         const xPos = -6 * (1 - t) + 6 * t;
         flyCamPos.set(xPos, 5.2, -5.8 + Math.cos(t * Math.PI) * 2.5);
         flyLookAt.set(0, 0, -5.8);
-
+      } else if (currentLevelId === 'survival_2') {
+        // Smooth spiral flyover showcasing the three hex tiers
+        const angle = t * Math.PI * 1.8;
+        const radius = 16.0 - t * 4.0;
+        flyCamPos.set(Math.sin(angle) * radius, 14.0 - t * 7.5, Math.cos(angle) * radius);
+        flyLookAt.set(0, 3.0 - t * 2.0, 0);
       } else {
         // Fallback flyover
         flyCamPos.set(0, 6, -10 + t * 20);

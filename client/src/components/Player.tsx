@@ -12,7 +12,7 @@ import { LEVEL_1_LANDMARKS } from '../utils/landmarks';
 
 export const Player: React.FC = () => {
   const controls = useGameControls();
-  const { lastCheckpoint, phase, triggerWin, triggerLoss, showDebugCheckpoints, isGodMode } = useGameStore();
+  const { lastCheckpoint, phase, triggerWin, triggerLoss, showDebugCheckpoints, isGodMode, isPlayerEliminated } = useGameStore();
   const isNitroActive = useGameStore((state) => state.isNitroActive);
   const nitroCooldown = useGameStore((state) => state.nitroCooldown);
   const triggerNitro = useGameStore((state) => state.triggerNitro);
@@ -74,6 +74,9 @@ export const Player: React.FC = () => {
       diveTimerRef.current = 0;
       diveCooldownRef.current = 0;
       isGrabbingRef.current = false;
+      if (visualGroupRef.current) {
+        visualGroupRef.current.visible = true;
+      }
       if (phase === 'PLAYING') {
         audioManager.playMatchStart();
       }
@@ -131,6 +134,18 @@ export const Player: React.FC = () => {
     tickNitro(delta);
 
     if (phase !== 'PLAYING') return;
+
+    if (isPlayerEliminated) {
+      if (visualGroupRef.current) {
+        visualGroupRef.current.visible = false;
+      }
+      if (rigidBodyRef.current) {
+        rigidBodyRef.current.setTranslation(new THREE.Vector3(0, -15, 0), true);
+        rigidBodyRef.current.setLinvel(new THREE.Vector3(0, 0, 0), true);
+        rigidBodyRef.current.setAngvel(new THREE.Vector3(0, 0, 0), true);
+      }
+      return;
+    }
 
     // Detect if nitro input is pressed
     if (controls.nitro && !isNitroActive && nitroCooldown <= 0 && !playerQualified) {

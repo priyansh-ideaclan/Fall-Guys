@@ -8,6 +8,7 @@ const LEVEL_NAMES = [
   'Level 1: Race – Beginner Bounds',
   'Level 2: Survival – Spinning Arena',
   'Level 3: Memory – Tile Showdown',
+  'Level 4: Hex – Hex-A-Terrestrial',
 ];
 
 const COLORS = [
