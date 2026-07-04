@@ -21,6 +21,8 @@ import {
   SlimeSplash,
   TiltingDeck,
   Windmill,
+  PatternWindmill,
+  HorizontalWindBlower,
   CandyHill,
   CandyMountain,
   DriftingCloud
@@ -182,299 +184,318 @@ export const Level1: React.FC = () => {
       {/* ── SECTION 1: SPAWN AREA (LUSH FOREST ZONE) (Z = -6 to Z = 20) ── */}
       {/* Spawn Base */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[3.0, 0.4, 4.5]} position={[0, -0.4, -1.5]} />
+        <CuboidCollider args={[6.0, 0.4, 4.5]} position={[0, -0.4, -1.5]} />
         <mesh receiveShadow position={[0, -0.4, -1.5]}>
-          <boxGeometry args={[6, 0.8, 9]} />
+          <boxGeometry args={[12, 0.8, 9]} />
           <meshStandardMaterial color="#2e8b57" roughness={0.7} /> {/* Lush grass green */}
         </mesh>
         
         {/* Spawn Border Walls */}
-        <mesh castShadow position={[-3.0, 0.4, -1.5]}>
+        <mesh castShadow position={[-6.0, 0.4, -1.5]}>
           <boxGeometry args={[0.15, 0.8, 9]} />
           <meshStandardMaterial color={config.obstacleColor1} roughness={0.5} />
         </mesh>
-        <mesh castShadow position={[3.0, 0.4, -1.5]}>
+        <mesh castShadow position={[6.0, 0.4, -1.5]}>
           <boxGeometry args={[0.15, 0.8, 9]} />
           <meshStandardMaterial color={config.obstacleColor1} roughness={0.5} />
         </mesh>
         <mesh castShadow position={[0, 0.4, -6.0]}>
-          <boxGeometry args={[6, 0.8, 0.15]} />
+          <boxGeometry args={[12, 0.8, 0.15]} />
           <meshStandardMaterial color={config.obstacleColor1} roughness={0.5} />
         </mesh>
       </RigidBody>
 
       {/* Forest Trees and Flags at Spawn */}
-      <DecorativeTree position={[-4.5, -0.8, -3.0]} type="candy" variant="candy-pink" scale={1.1} />
-      <DecorativeTree position={[4.5, -0.8, -1.0]} type="candy" variant="candy-yellow" scale={0.9} />
-      <WavingFlag position={[-2.4, 0, -5.5]} color="#ff007f" />
-      <WavingFlag position={[2.4, 0, -5.5]} color="#00e5ff" />
+      <DecorativeTree position={[-7.5, -0.8, -3.0]} type="candy" variant="candy-pink" scale={1.1} />
+      <DecorativeTree position={[7.5, -0.8, -1.0]} type="candy" variant="candy-yellow" scale={0.9} />
+      <WavingFlag position={[-5.2, 0, -5.5]} color="#ff007f" />
+      <WavingFlag position={[5.2, 0, -5.5]} color="#00e5ff" />
 
       {/* Walkway 1 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[2, 0.4, 3.5]} position={[0, -0.4, 6.5]} />
+        <CuboidCollider args={[4.5, 0.4, 3.5]} position={[0, -0.4, 6.5]} />
         <mesh receiveShadow position={[0, -0.4, 6.5]}>
-          <boxGeometry args={[4, 0.8, 7]} />
+          <boxGeometry args={[9, 0.8, 7]} />
           <meshStandardMaterial color="#3cb371" roughness={0.6} />
         </mesh>
         
         {/* Hurdle Obstacle */}
         <mesh castShadow position={[0, 0.25, 8.5]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.12, 0.12, 4, 12]} />
+          <cylinderGeometry args={[0.12, 0.12, 9, 12]} />
           <meshStandardMaterial color={config.obstacleColor2} roughness={0.4} />
         </mesh>
       </RigidBody>
       
       {/* Walkway 2 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[2, 0.4, 5.0]} position={[0, -0.4, 15.0]} />
+        <CuboidCollider args={[4.5, 0.4, 5.0]} position={[0, -0.4, 15.0]} />
         <mesh receiveShadow position={[0, -0.4, 15.0]}>
-          <boxGeometry args={[4, 0.8, 10]} />
+          <boxGeometry args={[9, 0.8, 10]} />
           <meshStandardMaterial color="#2e8b57" roughness={0.7} />
         </mesh>
       </RigidBody>
-      <DecorativeTree position={[-3.2, -0.8, 13.0]} type="candy" variant="candy-blue" scale={1.0} />
-      <DecorativeTree position={[3.2, -0.8, 17.0]} type="candy" variant="candy-purple" scale={1.0} />
+      <DecorativeTree position={[-5.8, -0.8, 13.0]} type="candy" variant="candy-blue" scale={1.0} />
+      <DecorativeTree position={[5.8, -0.8, 17.0]} type="candy" variant="candy-purple" scale={1.0} />
 
 
       {/* ── SECTION 2: ZIG-ZAG PLATFORMS (MOUNTAIN ZONE) (Z = 20 to Z = 45) ── */}
       <Checkpoint position={[0, 0, 20]} id={1} />
-      <ConfettiCannon position={[-1.8, 0, 20]} active={isCp1Active} />
-      <ConfettiCannon position={[1.8, 0, 20]} active={isCp1Active} />
+      <ConfettiCannon position={[-4.0, 0, 20]} active={isCp1Active} />
+      <ConfettiCannon position={[4.0, 0, 20]} active={isCp1Active} />
 
       {/* Platform 1: Tilting Deck Platforming */}
-      <TiltingDeck position={[-1.0, 0.1, 24.5]} size={[3.0, 0.5, 3.0]} color="#00e5ff" />
+      <TiltingDeck position={[-1.5, 0.1, 24.5]} size={[4.0, 0.5, 4.0]} color="#00e5ff" />
 
       {/* ── LEFT PATHWAY (EASY / LONG) ── */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[1.5, 0.4, 11.0]} position={[-4.5, 0.1, 26.5]} />
-        <mesh receiveShadow position={[-4.5, 0.1, 26.5]}>
-          <boxGeometry args={[3.0, 0.8, 22.0]} />
+        <CuboidCollider args={[2.25, 0.4, 11.0]} position={[-7.5, 0.1, 26.5]} />
+        <mesh receiveShadow position={[-7.5, 0.1, 26.5]}>
+          <boxGeometry args={[4.5, 0.8, 22.0]} />
           <meshStandardMaterial color="#4287f5" roughness={0.9} />
         </mesh>
       </RigidBody>
-      <MudPlatform position={[-4.5, 0.52, 22.0]} size={[2.4, 0.1, 4.0]} color="#5a3d28" />
+      <PatternWindmill position={[-7.5, 3.2, 22.0]} color="#ffd60a" />
 
       {/* ── MIDDLE PATHWAY (BALANCED / ZIG-ZAG) ── */}
       {/* Platform A: Fixed flat stone platform */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[1.25, 0.25, 1.25]} position={[1.0, 0.1, 28.2]} />
-        <mesh receiveShadow position={[1.0, 0.1, 28.2]}>
-          <boxGeometry args={[2.5, 0.5, 2.5]} />
+        <CuboidCollider args={[2.0, 0.25, 2.0]} position={[1.5, 0.1, 28.2]} />
+        <mesh receiveShadow position={[1.5, 0.1, 28.2]}>
+          <boxGeometry args={[4.0, 0.5, 4.0]} />
           <meshStandardMaterial color="#8b8589" roughness={0.8} />
         </mesh>
       </RigidBody>
 
       {/* Platform B: Moving X flat platform */}
-      <MovingPlatform position={[-0.8, 0.35, 31.8]} size={[2.5, 0.5, 2.5]} direction="x" range={0.8} speed={1.2} color="#ffd60a" />
+      <MovingPlatform position={[-1.2, 0.35, 31.8]} size={[4.0, 0.5, 4.0]} direction="x" range={1.2} speed={1.2} color="#ffd60a" />
 
       {/* Platform C: Fixed flat stone platform */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[1.25, 0.25, 1.25]} position={[0.8, 0.6, 35.4]} />
-        <mesh receiveShadow position={[0.8, 0.6, 35.4]}>
-          <boxGeometry args={[2.5, 0.5, 2.5]} />
+        <CuboidCollider args={[2.0, 0.25, 2.0]} position={[1.2, 0.6, 35.4]} />
+        <mesh receiveShadow position={[1.2, 0.6, 35.4]}>
+          <boxGeometry args={[4.0, 0.5, 4.0]} />
           <meshStandardMaterial color="#8b8589" roughness={0.8} />
         </mesh>
       </RigidBody>
 
       {/* Platform D: Moving Z flat platform */}
-      <MovingPlatform position={[-0.8, 0.85, 39.0]} size={[2.5, 0.5, 2.5]} direction="z" range={0.6} speed={1.0} color="#ff2a85" />
+      <MovingPlatform position={[-1.2, 0.85, 39.0]} size={[4.0, 0.5, 4.0]} direction="z" range={0.8} speed={1.0} color="#ff2a85" />
+      <HorizontalWindBlower position={[-1.2, 1.25, 39.0]} size={[4.0, 2.0, 2.5]} baseForce={24.0} direction="right" color="#ffd60a" />
 
       {/* ── RIGHT PATHWAY (HARD / SHORT) ── */}
-      <MovingPlatform position={[4.5, 0.1, 22.5]} size={[2.5, 0.5, 4.0]} direction="y" range={0.8} speed={1.5} color="#ffd60a" />
-      <SpeedPad position={[4.5, 0.4, 28.0]} color="#39ff14" />
+      <MovingPlatform position={[7.5, 0.1, 22.5]} size={[4.0, 0.5, 4.0]} direction="y" range={0.8} speed={1.5} color="#ffd60a" />
+      <SpeedPad position={[7.5, 0.4, 28.0]} color="#39ff14" />
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[0.5, 0.4, 4.0]} position={[4.5, 0.1, 34.0]} />
-        <mesh receiveShadow position={[4.5, 0.1, 34.0]}>
-          <boxGeometry args={[1.0, 0.8, 8.0]} />
+        <CuboidCollider args={[2.0, 0.4, 4.0]} position={[7.5, 0.1, 34.0]} />
+        <mesh receiveShadow position={[7.5, 0.1, 34.0]}>
+          <boxGeometry args={[4.0, 0.8, 8.0]} />
           <meshStandardMaterial color="#ff0055" roughness={0.6} />
         </mesh>
       </RigidBody>
-      <PendulumHammer position={[4.5, 1.2, 34.0]} length={2.5} speed={3.0} color="#ffd60a" />
+      <PendulumHammer position={[7.5, 1.2, 34.0]} length={2.8} speed={3.0} color="#ffd60a" />
       
       {/* Mountain Scenery details */}
-      <DecorativeTree position={[-6.0, -0.8, 25]} type="candy" variant="candy-pink" scale={1.0} />
-      <DecorativeTree position={[6.0, -0.8, 35]} type="candy" variant="candy-yellow" scale={1.1} />
-      <DecorativeTree position={[-6.0, -0.8, 30]} type="candy" variant="candy-blue" scale={1.2} />
-      <DecorativeTree position={[6.0, -0.8, 22]} type="candy" variant="candy-green" scale={1.1} />
+      <DecorativeTree position={[-11.0, -0.8, 25]} type="candy" variant="candy-pink" scale={1.0} />
+      <DecorativeTree position={[11.0, -0.8, 35]} type="candy" variant="candy-yellow" scale={1.1} />
+      <DecorativeTree position={[-11.0, -0.8, 30]} type="candy" variant="candy-blue" scale={1.2} />
+      <DecorativeTree position={[11.0, -0.8, 22]} type="candy" variant="candy-green" scale={1.1} />
 
 
       {/* ── SECTION 3: POWER JUMP & VERTICAL STORY (SKY ZONE) (Z = 45 to Z = 80) ── */}
       <Checkpoint position={[0, 1.0, 42.6]} id={2} />
-      <ConfettiCannon position={[-1.8, 1.0, 42.6]} active={isCp2Active} />
-      <ConfettiCannon position={[1.8, 1.0, 42.6]} active={isCp2Active} />
+      <ConfettiCannon position={[-5.5, 1.0, 42.6]} active={isCp2Active} />
+      <ConfettiCannon position={[5.5, 1.0, 42.6]} active={isCp2Active} />
 
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[4.0, 0.4, 2.5]} position={[0, 0.6, 42.6]} />
+        <CuboidCollider args={[7.0, 0.4, 2.5]} position={[0, 0.6, 42.6]} />
         <mesh receiveShadow position={[0, 0.6, 42.6]}>
-          <boxGeometry args={[8.0, 0.8, 5.0]} />
+          <boxGeometry args={[14, 0.8, 5]} />
           <meshStandardMaterial color={config.groundColor} roughness={0.5} />
         </mesh>
       </RigidBody>
+      
+      {/* Horizontal Wind Blower at Checkpoint 2 (Landmark 21) */}
+      <HorizontalWindBlower position={[0.0, 1.0, 42.6]} size={[14.0, 2.0, 2.5]} baseForce={26.0} direction="left" color="#00e5ff" />
 
-      {/* Jump Pad! Launches players high into sky storey platform without visual glitches */}
-      <JumpPad position={[0, 1.05, 44.5]} boostForce={22.0} color="#00e5ff" />
+      {/* Dual Jump Pads side-by-side! Launches players high into sky storey platform */}
+      <JumpPad position={[-2.5, 1.05, 44.5]} boostForce={22.0} color="#00e5ff" />
+      <JumpPad position={[2.5, 1.05, 44.5]} boostForce={22.0} color="#00e5ff" />
+      
+      {/* Horizontal Wind Blower at Jump Pad launch (Landmark 22) */}
+      <HorizontalWindBlower position={[0.0, 1.4, 44.5]} size={[14.0, 2.0, 2.5]} baseForce={26.0} direction="right" color="#ff007f" />
 
       {/* Autumn Forest Scenery along Section 3 */}
-      <DecorativeTree position={[-5.0, 6.7, 52]} type="candy" variant="candy-purple" scale={1.2} />
-      <DecorativeTree position={[5.0, 6.7, 56]} type="candy" variant="candy-pink" scale={1.0} />
-      <DecorativeTree position={[-5.0, 6.7, 60]} type="candy" variant="candy-green" scale={1.1} />
-      <DecorativeTree position={[5.0, 6.7, 66]} type="candy" variant="candy-blue" scale={1.3} />
+      <DecorativeTree position={[-7.5, 6.7, 52]} type="candy" variant="candy-purple" scale={1.2} />
+      <DecorativeTree position={[7.5, 6.7, 56]} type="candy" variant="candy-pink" scale={1.0} />
+      <DecorativeTree position={[-7.5, 6.7, 60]} type="candy" variant="candy-green" scale={1.1} />
+      <DecorativeTree position={[7.5, 6.7, 66]} type="candy" variant="candy-blue" scale={1.3} />
 
       {/* Storey 1 (High Landing Deck) at Z = 57, Y = 7.5 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[3.0, 0.4, 4.0]} position={[0, 7.1, 57.0]} />
+        <CuboidCollider args={[6.0, 0.4, 4.0]} position={[0, 7.1, 57.0]} />
         <mesh receiveShadow position={[0, 7.1, 57.0]}>
-          <boxGeometry args={[6.0, 0.8, 8.0]} />
+          <boxGeometry args={[12.0, 0.8, 8.0]} />
           <meshStandardMaterial color="#00e5ff" roughness={0.3} metalness={0.2} />
         </mesh>
       </RigidBody>
-      <WavingFlag position={[-2.6, 7.5, 57.0]} color="#00e5ff" />
-      <WavingFlag position={[2.6, 7.5, 57.0]} color="#ff007f" />
+      <WavingFlag position={[-5.5, 7.5, 57.0]} color="#00e5ff" />
+      <WavingFlag position={[5.5, 7.5, 57.0]} color="#ff007f" />
 
       {/* Storey 2 (Ice Platform left) at Z = 63.5, Y = 8.3 */}
-      <IcePlatform position={[-3.0, 7.9, 63.5]} size={[3.0, 0.8, 4.0]} color="#b2f2ff" />
-      <DecorativeTree position={[-6.0, 8.3, 63.5]} type="candy" variant="candy-purple" scale={0.8} />
+      <IcePlatform position={[-3.5, 7.9, 63.5]} size={[5.0, 0.8, 5.0]} color="#b2f2ff" />
+      <DecorativeTree position={[-7.5, 8.3, 63.5]} type="candy" variant="candy-purple" scale={0.8} />
 
-      {/* Storey 3 (Static bridge and rotating Windmill) at Z = 68.0, Y = 9.5 */}
+      {/* Storey 3 (Static bridge and rotating Windmills) at Z = 68.0, Y = 9.5 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[1.5, 0.4, 3.0]} position={[3.0, 8.7, 68.0]} />
-        <mesh receiveShadow position={[3.0, 8.7, 68.0]}>
-          <boxGeometry args={[3.0, 0.8, 6.0]} />
+        <CuboidCollider args={[3.0, 0.4, 3.0]} position={[3.5, 8.7, 68.0]} />
+        <mesh receiveShadow position={[3.5, 8.7, 68.0]}>
+          <boxGeometry args={[6.0, 0.8, 6.0]} />
           <meshStandardMaterial color={config.groundColor} roughness={0.6} />
         </mesh>
       </RigidBody>
-      <mesh position={[1.45, 9.3, 68.0]} castShadow>
+      <mesh position={[0.45, 9.3, 68.0]} castShadow>
         <boxGeometry args={[0.1, 0.8, 6.0]} />
         <meshStandardMaterial color="#ffd60a" roughness={0.3} />
       </mesh>
-      <Windmill position={[4.6, 10.5, 68.0]} speed={1.8} color="#ffd60a" />
+      
+      {/* Dual Windmill Obstacles on bridge! Opposite rotation makes it dynamic */}
+      <Windmill position={[1.8, 10.5, 68.0]} speed={1.8} color="#ffd60a" />
+      <Windmill position={[5.2, 10.5, 68.0]} speed={-1.6} color="#ffd60a" />
 
       {/* Storey 4 (Merge deck with Checkpoint) at Z = 73.0, Y = 10.7 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[2.5, 0.4, 2.5]} position={[0, 10.3, 73.0]} />
+        <CuboidCollider args={[6.0, 0.4, 2.5]} position={[0, 10.3, 73.0]} />
         <mesh receiveShadow position={[0, 10.3, 73.0]}>
-          <boxGeometry args={[5.0, 0.8, 5.0]} />
+          <boxGeometry args={[12.0, 0.8, 5.0]} />
           <meshStandardMaterial color={config.groundColor} roughness={0.6} />
         </mesh>
       </RigidBody>
 
-
-      {/* ── SECTION 4: ICE/MUD SLIDE & SWEEPERS (SNOW ZONE) (Z = 73 to Z = 100) ── */}
-      <Checkpoint position={[0, 10.7, 73.0]} id={3} />
-      <ConfettiCannon position={[-2.0, 10.7, 73.0]} active={isCp3Active} />
-      <ConfettiCannon position={[2.0, 10.7, 73.0]} active={isCp3Active} />
 
       {/* Parallel Slides (Left, Middle, Right) */}
       {/* Left: Water slide (Blue) */}
       <RigidBody type="fixed" colliders={false} userData={{ surface: 'slide' }}>
-        <CuboidCollider args={[1.0, 0.4, 5.0]} position={[-4.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
-        <mesh receiveShadow position={[-4.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} userData={{ surface: 'slide' }}>
-          <boxGeometry args={[2.0, 0.8, 10.0]} />
+        <CuboidCollider args={[1.5, 0.4, 5.0]} position={[-5.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
+        <mesh receiveShadow position={[-5.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} userData={{ surface: 'slide' }}>
+          <boxGeometry args={[3.0, 0.8, 10.0]} />
           <meshStandardMaterial color="#0066ff" roughness={0.1} transparent opacity={0.8} />
         </mesh>
       </RigidBody>
 
       {/* Middle: Rainbow slide (Yellow) */}
       <RigidBody type="fixed" colliders={false} userData={{ surface: 'slide' }}>
-        <CuboidCollider args={[1.0, 0.4, 5.0]} position={[0.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
+        <CuboidCollider args={[1.5, 0.4, 5.0]} position={[0.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
         <mesh receiveShadow position={[0.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} userData={{ surface: 'slide' }}>
-          <boxGeometry args={[2.0, 0.8, 10.0]} />
+          <boxGeometry args={[3.0, 0.8, 10.0]} />
           <meshStandardMaterial color="#ffd60a" roughness={0.1} />
         </mesh>
       </RigidBody>
 
       {/* Right: Ice slide (White) */}
       <RigidBody type="fixed" colliders={false} userData={{ surface: 'slide' }}>
-        <CuboidCollider args={[1.0, 0.4, 5.0]} position={[4.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
-        <mesh receiveShadow position={[4.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} userData={{ surface: 'slide' }}>
-          <boxGeometry args={[2.0, 0.8, 10.0]} />
+        <CuboidCollider args={[1.5, 0.4, 5.0]} position={[5.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
+        <mesh receiveShadow position={[5.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} userData={{ surface: 'slide' }}>
+          <boxGeometry args={[3.0, 0.8, 10.0]} />
           <meshStandardMaterial color="#ffffff" roughness={0.01} metalness={0.6} />
         </mesh>
       </RigidBody>
 
       {/* Slide landing deck at Z = 88.0, Y = 4.5 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[5.5, 0.4, 2.0]} position={[0, 4.1, 88.0]} />
+        <CuboidCollider args={[9.0, 0.4, 2.0]} position={[0, 4.1, 88.0]} />
         <mesh receiveShadow position={[0, 4.1, 88.0]}>
-          <boxGeometry args={[11.0, 0.8, 4.0]} />
+          <boxGeometry args={[18.0, 0.8, 4.0]} />
           <meshStandardMaterial color="#8b8589" roughness={0.7} />
         </mesh>
       </RigidBody>
       
-      {/* Rotating sweeper on landing deck to test timing! */}
-      <RotatingSweeper position={[0, 4.5, 88.0]} radius={2.0} height={0.5} speed={1.8} color="#ffaa00" />
+      {/* Dual rotating sweepers on landing deck to test timing! */}
+      <RotatingSweeper position={[-4.0, 4.5, 88.0]} radius={2.2} height={0.5} speed={1.8} color="#ffaa00" />
+      <RotatingSweeper position={[4.0, 4.5, 88.0]} radius={2.2} height={0.5} speed={-1.8} color="#ffaa00" />
       
       {/* Side slowing mud traps */}
-      <MudPlatform position={[-4.6, 4.1, 88.0]} size={[1.8, 0.85, 4.0]} color="#4d2f1d" />
-      <MudPlatform position={[2.6, 4.1, 88.0]} size={[1.8, 0.85, 4.0]} color="#4d2f1d" />
+      <MudPlatform position={[-8.5, 4.1, 88.0]} size={[3.0, 0.85, 4.0]} color="#4d2f1d" />
+      <MudPlatform position={[8.5, 4.1, 88.0]} size={[3.0, 0.85, 4.0]} color="#4d2f1d" />
 
-      {/* Swinging pendulum hammers above the slide landing */}
-      <PendulumHammer position={[0, 5.2, 94.0]} length={3.0} speed={2.5} color="#ff007f" />
+      {/* Dual swinging pendulum hammers above the slide landing */}
+      <PendulumHammer position={[-3.5, 5.2, 94.0]} length={3.0} speed={2.5} color="#ff007f" />
+      <PendulumHammer position={[3.5, 5.2, 94.0]} length={3.0} speed={-2.2} color="#ff007f" />
       
       {/* Snow environment trees */}
-      <DecorativeTree position={[-5.0, 4.5, 86.0]} type="candy" variant="candy-pink" scale={0.9} />
-      <DecorativeTree position={[5.0, 4.5, 90.0]} type="candy" variant="candy-blue" scale={1.0} />
+      <DecorativeTree position={[-9.5, 4.5, 86.0]} type="candy" variant="candy-pink" scale={0.9} />
+      <DecorativeTree position={[9.5, 4.5, 90.0]} type="candy" variant="candy-blue" scale={1.0} />
 
 
       {/* ── SECTION 5: FINAL SPRINT & BOUNCERS (DESERT ZONE) (Z = 100 to Z = 131) ── */}
       <Checkpoint position={[0, 4.5, 100.0]} id={4} />
-      <ConfettiCannon position={[-1.8, 4.5, 100.0]} active={isCp4Active} />
-      <ConfettiCannon position={[1.8, 4.5, 100.0]} active={isCp4Active} />
+      <ConfettiCannon position={[-5.5, 4.5, 100.0]} active={isCp4Active} />
+      <ConfettiCannon position={[5.5, 4.5, 100.0]} active={isCp4Active} />
 
       {/* Flat sprint road */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[3.0, 0.4, 5.0]} position={[0, 4.1, 105.0]} />
+        <CuboidCollider args={[6.0, 0.4, 5.0]} position={[0, 4.1, 105.0]} />
         <mesh receiveShadow position={[0, 4.1, 105.0]}>
-          <boxGeometry args={[6.0, 0.8, 10.0]} />
+          <boxGeometry args={[12.0, 0.8, 10.0]} />
           <meshStandardMaterial color="#e4a853" roughness={0.8} />
         </mesh>
       </RigidBody>
       
       {/* Speed Boost pads */}
-      <SpeedPad position={[-1.5, 4.52, 104.0]} />
-      <SpeedPad position={[1.5, 4.52, 104.0]} />
+      <SpeedPad position={[-3.0, 4.52, 104.0]} />
+      <SpeedPad position={[0.0, 4.52, 104.0]} />
+      <SpeedPad position={[3.0, 4.52, 104.0]} />
 
-      {/* Moving gates obstacle */}
-      <MovingPlatform position={[0, 5.2, 109.0]} size={[5.8, 1.2, 0.3]} direction="y" range={1.5} speed={2.2} color={config.obstacleColor1} />
+      {/* Moving gates obstacle - Dual Gates side-by-side */}
+      <MovingPlatform position={[-3.0, 5.2, 109.0]} size={[5.6, 1.2, 0.3]} direction="y" range={1.5} speed={2.2} color={config.obstacleColor1} />
+      <MovingPlatform position={[3.0, 5.2, 109.0]} size={[5.6, 1.2, 0.3]} direction="y" range={1.5} speed={1.8} color={config.obstacleColor1} />
 
-      {/* Narrow Balance Beam with cross-wind blowers combo */}
+      {/* Narrow Balance Beams (Dual paths) with cross-wind blowers combo */}
       <RigidBody type="fixed">
-        <CuboidCollider args={[0.3, 0.2, 2.5]} position={[0, 4.1, 112.5]} />
-        <mesh receiveShadow position={[0, 4.1, 112.5]}>
+        <CuboidCollider args={[0.3, 0.2, 2.5]} position={[-3.0, 4.1, 112.5]} />
+        <mesh receiveShadow position={[-3.0, 4.1, 112.5]}>
           <boxGeometry args={[0.6, 0.4, 5.0]} />
           <meshStandardMaterial color="#8b4513" roughness={0.9} />
         </mesh>
       </RigidBody>
-      <WindFanZone position={[-3.0, 4.8, 112.5]} size={[2.0, 2.0, 4.0]} force={[2.8, 0, 0]} />
+      <RigidBody type="fixed">
+        <CuboidCollider args={[0.3, 0.2, 2.5]} position={[3.0, 4.1, 112.5]} />
+        <mesh receiveShadow position={[3.0, 4.1, 112.5]}>
+          <boxGeometry args={[0.6, 0.4, 5.0]} />
+          <meshStandardMaterial color="#8b4513" roughness={0.9} />
+        </mesh>
+      </RigidBody>
+      <WindFanZone position={[-6.5, 4.8, 112.5]} size={[2.0, 2.0, 4.0]} force={[2.8, 0, 0]} />
+      <WindFanZone position={[6.5, 4.8, 112.5]} size={[2.0, 2.0, 4.0]} force={[-2.8, 0, 0]} />
 
       {/* Downhill slanted speed slide to finish platform */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[3.0, 0.4, 6.0]} position={[0, 1.1, 120.0]} rotation={[0.45, 0, 0]} />
+        <CuboidCollider args={[7.0, 0.4, 6.0]} position={[0, 1.1, 120.0]} rotation={[0.45, 0, 0]} />
         <mesh receiveShadow position={[0, 1.1, 120.0]} rotation={[0.45, 0, 0]} userData={{ surface: 'speed-ramp' }}>
-          <boxGeometry args={[6.0, 0.8, 12.0]} />
+          <boxGeometry args={[14.0, 0.8, 12.0]} />
           <meshStandardMaterial color="#ffd60a" roughness={0.15} metalness={0.3} />
         </mesh>
       </RigidBody>
 
-      {/* Final sweeper hazard at bottom */}
-      <RotatingSweeper position={[0, -1.8, 128.0]} radius={2.2} height={0.6} speed={2.5} color={config.obstacleColor2} />
+      {/* Final sweeper hazards at bottom - Dual sweepers */}
+      <RotatingSweeper position={[-3.5, -1.8, 128.0]} radius={2.2} height={0.6} speed={2.5} color={config.obstacleColor2} />
+      <RotatingSweeper position={[3.5, -1.8, 128.0]} radius={2.2} height={0.6} speed={-2.2} color={config.obstacleColor2} />
 
       {/* Desert Ruins Scenery details */}
-      <DecorativeRuins position={[-5.0, 4.5, 106.0]} type="broken-pillar" scale={0.7} />
-      <DecorativeRuins position={[5.0, 4.5, 103.0]} type="pillar" scale={0.8} />
-      <DecorativeTree position={[-4.5, 4.5, 112.0]} type="candy" variant="candy-yellow" scale={1.1} />
-      <DecorativeTree position={[4.5, 4.5, 112.0]} type="candy" variant="candy-pink" scale={1.0} />
+      <DecorativeRuins position={[-8.0, 4.5, 106.0]} type="broken-pillar" scale={0.7} />
+      <DecorativeRuins position={[8.0, 4.5, 103.0]} type="pillar" scale={0.8} />
+      <DecorativeTree position={[-7.5, 4.5, 112.0]} type="candy" variant="candy-yellow" scale={1.1} />
+      <DecorativeTree position={[7.5, 4.5, 112.0]} type="candy" variant="candy-pink" scale={1.0} />
 
       {/* Floating Celebration Balloons */}
-      <mesh position={[-4.0, 8.0, 122.0]} castShadow>
+      <mesh position={[-7.0, 8.0, 122.0]} castShadow>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshStandardMaterial color="#ff007f" roughness={0.2} />
       </mesh>
-      <mesh position={[4.0, 9.5, 124.0]} castShadow>
+      <mesh position={[7.0, 9.5, 124.0]} castShadow>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshStandardMaterial color="#ffd60a" roughness={0.2} />
       </mesh>
-      <mesh position={[-3.0, 11.0, 128.0]} castShadow>
+      <mesh position={[-6.0, 11.0, 128.0]} castShadow>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshStandardMaterial color="#00e5ff" roughness={0.2} />
       </mesh>
@@ -482,35 +503,35 @@ export const Level1: React.FC = () => {
 
       {/* ── FINISH LINE PLATFORM ────────────────────────────────────── */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[3.5, 0.4, 4.0]} position={[0, -2.4, 135.0]} />
+        <CuboidCollider args={[7.0, 0.4, 4.0]} position={[0, -2.4, 135.0]} />
         <mesh receiveShadow position={[0, -2.4, 135.0]}>
-          <boxGeometry args={[7.0, 0.8, 8.0]} />
+          <boxGeometry args={[14.0, 0.8, 8.0]} />
           <meshStandardMaterial color="#2e8b57" roughness={0.6} />
         </mesh>
 
         {/* Victory Archway Pillars */}
-        <mesh castShadow position={[-2.4, -0.6, 135.0]}>
+        <mesh castShadow position={[-5.8, -0.6, 135.0]}>
           <cylinderGeometry args={[0.18, 0.18, 2.8, 12]} />
           <meshStandardMaterial color={config.obstacleColor2} />
         </mesh>
-        <mesh castShadow position={[2.4, -0.6, 135.0]}>
+        <mesh castShadow position={[5.8, -0.6, 135.0]}>
           <cylinderGeometry args={[0.18, 0.18, 2.8, 12]} />
           <meshStandardMaterial color={config.obstacleColor2} />
         </mesh>
         <mesh castShadow position={[0, 0.8, 135.0]}>
-          <boxGeometry args={[5.0, 0.4, 0.4]} />
+          <boxGeometry args={[12.0, 0.4, 0.4]} />
           <meshStandardMaterial color={config.obstacleColor1} />
         </mesh>
       </RigidBody>
 
       {/* Celebration flags at finish */}
-      <WavingFlag position={[-3.0, -2.0, 137.5]} color="#ff007f" />
-      <WavingFlag position={[3.0, -2.0, 137.5]} color="#00e5ff" />
+      <WavingFlag position={[-6.5, -2.0, 137.5]} color="#ff007f" />
+      <WavingFlag position={[6.5, -2.0, 137.5]} color="#00e5ff" />
 
       {/* Finish trigger sensor */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider 
-          args={[2.8, 1.5, 0.2]} 
+          args={[6.8, 1.5, 0.2]} 
           sensor 
           onIntersectionEnter={handleFinish} 
           position={[0, -1.0, 135.0]} 

@@ -7,10 +7,10 @@ import { audioManager } from '../utils/audioManager';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Distance from player the follow-cam sits */
-const FOLLOW_DISTANCE = 5.2;
+const FOLLOW_DISTANCE = 6.0;
 
 /** How high above the player the follow-cam sits (metres) */
-const FOLLOW_HEIGHT = 2.2;
+const FOLLOW_HEIGHT = 2.4;
 
 /** How quickly the follow-cam position lerps to its target (per frame) */
 const FOLLOW_POS_LERP = 0.10;

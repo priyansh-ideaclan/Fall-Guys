@@ -20,21 +20,21 @@ const LEVEL_1_LEFT_PATH: [number, number, number][] = [
   [0, 0, 0],
   [0, 0, 5],
   [0, 0, 10],
-  [-4.5, 0, 15.0],  // Left lane entry
-  [-4.5, 0, 26.5],  // Left grass walkway
-  [-4.5, 0.5, 33.0], // Left mud area
+  [-7.5, 0, 15.0],   // Left lane entry
+  [-7.5, 0, 26.5],   // Left grass walkway
+  [-7.5, 0.5, 33.0],  // Left mud area
   [0, 1.0, 42.6],    // Merge Checkpoint 2
-  [0, 1.05, 44.5],   // Power Jump Pad
+  [0, 1.05, 44.5],   // Jump Pad
   [0, 7.5, 60.0],    // Landing deck Storey 1
-  [-3.0, 7.9, 63.5], // Ice platform left Storey 2
+  [-3.5, 7.9, 63.5], // Ice platform left Storey 2
   [0, 10.3, 73.0],   // Checkpoint 3 Storey 4
-  [-4.0, 8.5, 76.0], // Left water slide entry
-  [-4.0, 5.0, 83.0], // Left water slide mid
+  [-5.0, 8.5, 76.0], // Left water slide entry
+  [-5.0, 5.0, 83.0], // Left water slide mid
   [0, 4.1, 88.0],    // Slide landing deck
   [0, 5.2, 94.0],    // Walkway
   [0, 4.5, 100.0],   // Checkpoint 4
-  [-2.0, 4.5, 105.0], // Left lane flat road
-  [-2.0, 5.2, 109.0], // Left side platform
+  [-3.0, 4.5, 105.0], // Left lane flat road
+  [-3.0, 5.2, 109.0], // Left side gate
   [0, 1.1, 120.0],   // Speed slide
   [0, -1.8, 128.0],  // Final rotating sweeper
   [0, -2.4, 135.0]   // Finish Archway
@@ -45,13 +45,13 @@ const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
   [0, 0, 5],
   [0, 0, 10],
   [0, 0, 15],
-  [-1.0, 0.1, 24.5], // Tilting deck
-  [1.0, 0.1, 28.2],  // Platform A
-  [-0.8, 0.35, 31.8], // Platform B
-  [0.8, 0.6, 35.4],  // Platform C
-  [-0.8, 0.85, 39.0], // Platform D
+  [-1.5, 0.1, 24.5], // Tilting deck
+  [1.5, 0.1, 28.2],  // Platform A
+  [-1.2, 0.35, 31.8], // Platform B
+  [1.2, 0.6, 35.4],  // Platform C
+  [-1.2, 0.85, 39.0], // Platform D
   [0, 1.0, 42.6],    // Checkpoint 2
-  [0, 1.05, 44.5],   // Power Jump Pad
+  [0, 1.05, 44.5],   // Jump Pad
   [0, 7.5, 60.0],    // Landing deck Storey 1
   [0, 7.5, 60.0],    // Stay in center
   [0, 10.3, 73.0],   // Checkpoint 3 Storey 4
@@ -71,22 +71,22 @@ const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
   [0, 0, 0],
   [0, 0, 5],
   [0, 0, 10],
-  [4.5, 0, 15.0],   // Right lane entry
-  [4.5, 0.1, 22.5],  // Right moving platform
-  [4.5, 0.4, 28.0],  // Speed pad right
-  [4.5, 0.1, 34.0],  // Hammer platform
+  [7.5, 0, 15.0],    // Right lane entry
+  [7.5, 0.1, 22.5],  // Right moving platform
+  [7.5, 0.4, 28.0],  // Speed pad right
+  [7.5, 0.1, 34.0],  // Hammer platform
   [0, 1.0, 42.6],    // Checkpoint 2
-  [0, 1.05, 44.5],   // Power Jump Pad
+  [0, 1.05, 44.5],   // Jump Pad
   [0, 7.5, 60.0],    // Landing deck Storey 1
-  [3.0, 9.1, 68.0],  // Moving platform right Storey 3
+  [3.5, 9.1, 68.0],  // Bridge right Storey 3
   [0, 10.3, 73.0],   // Checkpoint 3 Storey 4
-  [4.0, 8.5, 76.0],  // Right slide entry
-  [4.0, 5.0, 83.0],  // Right slide mid
+  [5.0, 8.5, 76.0],  // Right slide entry
+  [5.0, 5.0, 83.0],  // Right slide mid
   [0, 4.1, 88.0],    // Slide landing deck
   [0, 5.2, 94.0],    // Walkway
   [0, 4.5, 100.0],   // Checkpoint 4
-  [2.0, 4.5, 105.0], // Right shortcut entry
-  [0.0, 4.1, 112.5], // Narrow balance beam
+  [3.0, 4.5, 105.0], // Right shortcut entry
+  [3.0, 4.1, 112.5], // Right balance beam
   [0, 1.1, 120.0],   // Speed slide
   [0, -1.8, 128.0],  // Final rotating sweeper
   [0, -2.4, 135.0]   // Finish Archway
@@ -460,8 +460,25 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       activeSpeed *= 0.65;
     }
 
-    // Windmill timing check for bots passing on the right path (X > 1.2, 64.0 < Z < 69.5)
-    if (currentLevelId === 'race_1' && pos.x > 1.2 && pos.z > 64.0 && pos.z < 69.5) {
+    // Custom pattern windmill at Landmark 11 (Z = 22.0) and bridge windmills (Z = 68.0) timing checks
+    const isNearLandmark11Windmill = currentLevelId === 'race_1' && pos.x < -4.0 && pos.z > 19.5 && pos.z < 24.5;
+    const isNearBridgeWindmill = currentLevelId === 'race_1' && pos.x > 0.5 && pos.z > 64.0 && pos.z < 69.5;
+
+    if (isNearLandmark11Windmill) {
+      if (windmillMistakeFlag.current === null) {
+        const threshold = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.12 : 0.02;
+        windmillMistakeFlag.current = Math.random() < threshold;
+      }
+
+      if (windmillMistakeFlag.current === false) {
+        const elapsed = state.clock.getElapsedTime();
+        const t = elapsed % 8.5; // 8.5 second repeating cycle
+        // Wait during fast rotation phase (3s to 5.5s)
+        if (t >= 2.5 && t <= 5.8) {
+          activeSpeed = 0; // pause and wait
+        }
+      }
+    } else if (isNearBridgeWindmill) {
       if (windmillMistakeFlag.current === null) {
         const threshold = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.12 : 0.02;
         windmillMistakeFlag.current = Math.random() < threshold;
@@ -475,9 +492,44 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         }
       }
     } else {
-      if (pos.z > 69.5) {
-        windmillMistakeFlag.current = null;
+      windmillMistakeFlag.current = null;
+    }
+
+    // 4a. Wind zone cycle evasion check (Bots wait before crossing if wind is high)
+    let isHeadingIntoStrongWind = false;
+    const botIndex = parseInt(id.replace(/\D/g, '')) || 0;
+    const windZonesList = state.scene.children.filter((child) => child.name === 'wind-zone');
+    windZonesList.forEach((zone) => {
+      const zonePos = new THREE.Vector3();
+      zone.getWorldPosition(zonePos);
+      const zoneSize = zone.userData.size;
+      if (zoneSize) {
+        const dx = pos.x - zonePos.x;
+        const dy = pos.y - zonePos.y;
+        const dz = pos.z - zonePos.z;
+        // Bot is approaching or inside this wind zone
+        if (
+          Math.abs(dx) < zoneSize[0] / 2 + 1.5 && // extended lookahead buffer
+          Math.abs(dy - 0.5) < zoneSize[1] / 2 &&
+          Math.abs(dz) < zoneSize[2] / 2
+        ) {
+          const elapsed = state.clock.getElapsedTime();
+          const t = elapsed % 7.0; // 7.0s wind cycle
+          const isWindStrong = t > 2.2 && t < 5.8;
+          if (isWindStrong) {
+            // Decide if the bot commits a mistake based on bot index pattern
+            const hasMistake = botIndex % 5 === 0;
+            const shouldEvade = !hasMistake;
+            if (shouldEvade) {
+              isHeadingIntoStrongWind = true;
+            }
+          }
+        }
       }
+    });
+
+    if (isHeadingIntoStrongWind) {
+      activeSpeed = 0;
     }
 
     // 4b. Wind Zone detection
@@ -941,6 +993,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           
           knockbackVelRef.current.copy(dir).multiplyScalar(8.5);
           knockbackTimerRef.current = 0.45;
+          useGameStore.getState().triggerSplash([botPos.x, botPos.y, botPos.z], '#00e5ff'); // Blue splash!
         }
       }}
     >

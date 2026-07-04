@@ -614,6 +614,7 @@ export const Player: React.FC = () => {
           knockbackVelRef.current.copy(dir).multiplyScalar(8.5);
           knockbackTimerRef.current = 0.45;
           audioManager.playCollision(); // Play bonk sound effect!
+          useGameStore.getState().triggerSplash([playerPos.x, playerPos.y, playerPos.z], '#ff007f'); // Pink splash!
         }
       }}
     >

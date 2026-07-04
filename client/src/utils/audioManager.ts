@@ -584,6 +584,38 @@ class AudioManager {
     osc.start();
     osc.stop(this.ctx.currentTime + 0.56);
   }
+
+  public playWindWhoosh(intensity: number) {
+    this.resumeContext();
+    if (!this.ctx || !this.sfxGain || intensity <= 0.05) return;
+
+    // Bandpass filtered noise burst simulating wind whoosh gusts
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.15);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(400 + intensity * 600, this.ctx.currentTime);
+    filter.Q.value = 2.0;
+
+    const env = this.ctx.createGain();
+    env.gain.setValueAtTime(intensity * 0.08, this.ctx.currentTime);
+    env.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+
+    noise.connect(filter);
+    filter.connect(env);
+    env.connect(this.sfxGain);
+
+    noise.start();
+    noise.stop(this.ctx.currentTime + 0.16);
+  }
 }
 
 export const audioManager = new AudioManager();

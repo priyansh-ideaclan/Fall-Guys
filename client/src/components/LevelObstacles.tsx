@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RigidBody, CuboidCollider, CylinderCollider, RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
@@ -1259,6 +1259,284 @@ export const Windmill: React.FC<WindmillProps> = ({ position, speed, color = '#f
           </mesh>
         </group>
       </RigidBody>
+    </group>
+  );
+};
+
+// ─── PatternWindmill & HorizontalWindBlower ───────────────────────────────────
+
+interface PatternWindmillProps {
+  position: [number, number, number];
+  color?: string;
+  speedScale?: number;
+}
+
+export const PatternWindmill: React.FC<PatternWindmillProps> = ({ position, color = '#ffd60a', speedScale = 1.0 }) => {
+  const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const angleRef = useRef(0);
+
+  useFrame((state, delta) => {
+    const rb = rigidBodyRef.current;
+    if (!rb) return;
+
+    const elapsed = state.clock.getElapsedTime() * speedScale;
+    const t = elapsed % 8.5; // 8.5 second repeating cycle
+    
+    // Pattern speeds:
+    // 0s - 2s: slow (1.0 rad/s)
+    // 2s - 3s: accelerate (1.0 -> 6.0 rad/s)
+    // 3s - 5.5s: fast (6.0 rad/s)
+    // 5.5s - 7.5s: decelerate (6.0 -> 0.0 rad/s)
+    // 7.5s - 8.5s: pause (0.0 rad/s)
+    let speed = 0;
+    if (t < 2.0) {
+      speed = 1.0;
+    } else if (t < 3.0) {
+      const frac = t - 2.0;
+      speed = 1.0 + frac * 5.0; // linearly interpolate from 1.0 to 6.0
+    } else if (t < 5.5) {
+      speed = 6.0;
+    } else if (t < 7.5) {
+      const frac = (t - 5.5) / 2.0;
+      speed = 6.0 * (1.0 - frac); // linearly decelerate from 6.0 to 0.0
+    } else {
+      speed = 0.0;
+    }
+
+    angleRef.current += speed * delta;
+    const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), angleRef.current);
+    rb.setNextKinematicRotation(q);
+  });
+
+  return (
+    <group position={position}>
+      {/* Thick Inflatable Vertical Pillar Support */}
+      <RigidBody type="fixed" colliders={false}>
+        <CylinderCollider args={[2.0, 0.35]} position={[0, -1.5, -0.6]} />
+        <mesh castShadow position={[0, -1.5, -0.6]}>
+          <cylinderGeometry args={[0.3, 0.35, 3.2, 16]} />
+          <meshStandardMaterial color="#ff007f" roughness={0.3} metalness={0.2} /> {/* Pink pillar */}
+        </mesh>
+        
+        {/* Soft rounded base column ring */}
+        <mesh position={[0, -3.0, -0.6]}>
+          <cylinderGeometry args={[0.6, 0.7, 0.3, 16]} />
+          <meshStandardMaterial color="#f06292" roughness={0.5} />
+        </mesh>
+      </RigidBody>
+
+      {/* Kinematic rotating Hub and Blades */}
+      <RigidBody ref={rigidBodyRef} type="kinematicPosition" colliders={false} name="windmill-blade" friction={1.0} restitution={1.2}>
+        {/* Large Central Hub */}
+        <mesh castShadow position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.6, 0.6, 0.65, 20]} />
+          <meshStandardMaterial color="#bd00ff" roughness={0.2} metalness={0.5} /> {/* Purple hub */}
+        </mesh>
+
+        {/* 4 Large Rounded Blades (extending in cross shape) */}
+        {/* Blade 1 (UP) */}
+        <group rotation={[0, 0, 0]} position={[0, 1.3, 0]}>
+          <CuboidCollider args={[0.25, 1.1, 0.15]} />
+          <mesh castShadow>
+            <boxGeometry args={[0.5, 2.2, 0.3]} />
+            <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+          </mesh>
+          {/* Rounded tip detail */}
+          <mesh position={[0, 1.1, 0]}>
+            <sphereGeometry args={[0.25, 12, 12]} />
+            <meshStandardMaterial color="#00e5ff" roughness={0.3} />
+          </mesh>
+        </group>
+
+        {/* Blade 2 (RIGHT) */}
+        <group rotation={[0, 0, -Math.PI / 2]} position={[1.3, 0, 0]}>
+          <CuboidCollider args={[0.25, 1.1, 0.15]} />
+          <mesh castShadow>
+            <boxGeometry args={[0.5, 2.2, 0.3]} />
+            <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+          </mesh>
+          <mesh position={[0, 1.1, 0]}>
+            <sphereGeometry args={[0.25, 12, 12]} />
+            <meshStandardMaterial color="#00e5ff" roughness={0.3} />
+          </mesh>
+        </group>
+
+        {/* Blade 3 (DOWN) */}
+        <group rotation={[0, 0, Math.PI]} position={[0, -1.3, 0]}>
+          <CuboidCollider args={[0.25, 1.1, 0.15]} />
+          <mesh castShadow>
+            <boxGeometry args={[0.5, 2.2, 0.3]} />
+            <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+          </mesh>
+          <mesh position={[0, 1.1, 0]}>
+            <sphereGeometry args={[0.25, 12, 12]} />
+            <meshStandardMaterial color="#00e5ff" roughness={0.3} />
+          </mesh>
+        </group>
+
+        {/* Blade 4 (LEFT) */}
+        <group rotation={[0, 0, Math.PI / 2]} position={[-1.3, 0, 0]}>
+          <CuboidCollider args={[0.25, 1.1, 0.15]} />
+          <mesh castShadow>
+            <boxGeometry args={[0.5, 2.2, 0.3]} />
+            <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
+          </mesh>
+          <mesh position={[0, 1.1, 0]}>
+            <sphereGeometry args={[0.25, 12, 12]} />
+            <meshStandardMaterial color="#00e5ff" roughness={0.3} />
+          </mesh>
+        </group>
+      </RigidBody>
+    </group>
+  );
+};
+
+interface HorizontalWindBlowerProps {
+  position: [number, number, number];
+  size: [number, number, number];
+  baseForce: number;
+  direction: 'left' | 'right';
+  color?: string;
+}
+
+export const HorizontalWindBlower: React.FC<HorizontalWindBlowerProps> = ({
+  position,
+  size,
+  baseForce,
+  direction,
+  color = '#00e5ff'
+}) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const fanBladeRef = useRef<THREE.Mesh>(null);
+  const audioThrottleRef = useRef(0);
+
+  useFrame((state, delta) => {
+    const elapsed = state.clock.getElapsedTime();
+    const t = elapsed % 7.0; // 7.0s cycle
+    
+    // Wind cycle:
+    // 0.0s - 2.0s: wind OFF (factor = 0)
+    // 2.0s - 3.0s: ramp UP (factor: 0 -> 1)
+    // 3.0s - 6.0s: FULL power (factor = 1)
+    // 6.0s - 7.0s: ramp DOWN (factor: 1 -> 0)
+    let factor = 0;
+    if (t < 2.0) {
+      factor = 0;
+    } else if (t < 3.0) {
+      factor = t - 2.0;
+    } else if (t < 6.0) {
+      factor = 1.0;
+    } else {
+      factor = 7.0 - t;
+    }
+
+    // Determine current wind force vector along X axis
+    const sign = direction === 'left' ? -1 : 1;
+    const forceX = baseForce * factor * sign;
+    
+    // Update group userData.force dynamically so players/bots detect the correct time-varying force!
+    if (groupRef.current) {
+      groupRef.current.userData.force = [forceX, 0, 0];
+    }
+
+    // Rotate fan blades based on current wind factor
+    if (fanBladeRef.current) {
+      fanBladeRef.current.rotation.y += delta * (0.5 + factor * 22.0); // fast spin when active
+    }
+
+    // Sound effect: play whoosh sound at regular intervals when wind is active
+    if (factor > 0.05) {
+      audioThrottleRef.current += delta;
+      if (audioThrottleRef.current > 0.14) {
+        audioThrottleRef.current = 0;
+        audioManager.playWindWhoosh(factor); // dynamic volume and frequency based on ramp
+      }
+    } else {
+      audioThrottleRef.current = 0;
+    }
+
+    // Animate wind particles inside the group
+    const particles = groupRef.current?.children.filter((child) => child.name === 'wind-streak');
+    if (particles) {
+      particles.forEach((p, idx) => {
+        // Shift particle position along X axis based on wind direction
+        p.position.x += delta * 15.0 * sign * (0.4 + factor * 1.2);
+        
+        // Wrap around if it goes outside bounds
+        const halfWidth = size[0] / 2;
+        if (sign > 0 && p.position.x > halfWidth) {
+          p.position.x = -halfWidth;
+        } else if (sign < 0 && p.position.x < -halfWidth) {
+          p.position.x = halfWidth;
+        }
+        
+        // scale visual opacity based on wind factor
+        const mesh = p as THREE.Mesh;
+        if (mesh.material) {
+          (mesh.material as THREE.MeshBasicMaterial).opacity = factor * 0.16 * (0.3 + 0.7 * Math.sin(state.clock.getElapsedTime() * 4 + idx));
+        }
+      });
+    }
+  });
+
+  // Generate 8 wind particle coordinates deterministically inside the zone volume
+  const particleConfigs = useMemo<Array<{ pos: [number, number, number] }>>(() => {
+    const arr: Array<{ pos: [number, number, number] }> = [];
+    for (let i = 0; i < 8; i++) {
+      const rx = (Math.random() - 0.5) * size[0];
+      const ry = (Math.random() - 0.5) * size[1] + 0.5;
+      const rz = (Math.random() - 0.5) * size[2];
+      arr.push({ pos: [rx, ry, rz] });
+    }
+    return arr;
+  }, [size]);
+
+  // Position of the fan body
+  const fanX = direction === 'left' ? size[0] / 2 + 0.35 : -size[0] / 2 - 0.35;
+  const fanRot = direction === 'left' ? Math.PI / 2 : -Math.PI / 2;
+
+  return (
+    <group ref={groupRef} position={position} name="wind-zone" userData={{ size, force: [0, 0, 0] }}>
+      {/* 1. Large Stylized Fan Blower body */}
+      <group position={[fanX, 0.5, 0]} rotation={[0, 0, fanRot]}>
+        {/* Base cylinder housing */}
+        <mesh castShadow>
+          <cylinderGeometry args={[0.75, 0.85, 0.6, 12]} />
+          <meshStandardMaterial color="#455a64" roughness={0.4} metalness={0.7} />
+        </mesh>
+        
+        {/* Blower exhaust guard rim */}
+        <mesh position={[0, 0.31, 0]}>
+          <cylinderGeometry args={[0.82, 0.82, 0.12, 12]} />
+          <meshStandardMaterial color="#37474f" roughness={0.2} />
+        </mesh>
+        
+        {/* Colorful visual cap accent */}
+        <mesh position={[0, -0.31, 0]}>
+          <cylinderGeometry args={[0.65, 0.7, 0.1, 12]} />
+          <meshStandardMaterial color={color} roughness={0.3} />
+        </mesh>
+
+        {/* Rotating Blades */}
+        <mesh ref={fanBladeRef} position={[0, 0.2, 0]}>
+          <boxGeometry args={[1.3, 0.1, 0.15]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.1} />
+        </mesh>
+      </group>
+
+      {/* 2. Visual Wind streaks */}
+      {particleConfigs.map((cfg: { pos: [number, number, number] }, idx: number) => (
+        <mesh key={idx} name="wind-streak" position={cfg.pos}>
+          <boxGeometry args={[0.8, 0.04, 0.04]} />
+          <meshBasicMaterial color="#ffffff" transparent opacity={0.0} />
+        </mesh>
+      ))}
+
+      {/* 3. Transparent wind tunnel visual indicator bounds */}
+      <mesh position={[0, 0.5, 0]}>
+        <boxGeometry args={size} />
+        <meshBasicMaterial color={color} transparent opacity={0.03} wireframe />
+      </mesh>
     </group>
   );
 };
