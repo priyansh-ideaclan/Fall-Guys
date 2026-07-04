@@ -163,14 +163,14 @@ const getStoredBoolean = (key: string, fallback: boolean): boolean => {
 };
 
 // Available levels by category
-const RACE_LEVELS = ['race_1', 'race_2', 'race_3'];
-const SURVIVAL_LEVELS = ['survival_1', 'survival_2'];
-const LOGIC_LEVELS = ['logic_1', 'logic_2'];
-const HUNT_LEVELS = ['hunt_1'];
-const FINAL_LEVELS = ['final_1', 'final_2'];
+const RACE_LEVELS = ['race_1'];
+const SURVIVAL_LEVELS = ['survival_1'];
+const LOGIC_LEVELS = ['logic_1'];
+const HUNT_LEVELS: string[] = [];
+const FINAL_LEVELS: string[] = [];
 
-// Fixed 5-round tournament progression
-// Round: 1=Race, 2=Survival, 3=Logic, 4=Hunt, 5=Final
+// Fixed 3-round tournament progression
+// Round: 1=Race, 2=Survival, 3=Logic (Final Showdown)
 const ROUND_PROGRESSION: Array<{
   levelId: string;
   type: LevelType;
@@ -188,35 +188,21 @@ const ROUND_PROGRESSION: Array<{
   {
     levelId: 'survival_1',
     type: 'SURVIVAL',
-    objective: 'Stay alive on the spinning arena! Don\u0027t fall off!',
-    qualifyLimit: 6,
+    objective: 'Stay alive on the spinning arena! Don\'t fall off!',
+    qualifyLimit: 4,
     timeLimit: 30,
   },
   {
     levelId: 'logic_1',
     type: 'LOGIC',
-    objective: 'Stand on the correct color tile before the wrong ones drop!',
-    qualifyLimit: 4,
-    timeLimit: 42,
-  },
-  {
-    levelId: 'hunt_1',
-    type: 'HUNT',
-    objective: 'Collect the most stars — top 3 advance to the Final!',
-    qualifyLimit: 3,
-    timeLimit: 35,
-  },
-  {
-    levelId: 'final_2',
-    type: 'FINAL',
-    objective: 'Climb to the summit and grab the Crown — last one standing wins!',
+    objective: 'Stand on the correct color tile before the wrong ones drop! Final racer wins!',
     qualifyLimit: 1,
-    timeLimit: 0,
+    timeLimit: 42,
   },
 ];
 
-// Map legacy level select index (0-4) to unique mode level IDs
-const CAMPAIGN_LEVEL_IDS = ['race_1', 'survival_1', 'logic_1', 'hunt_1', 'final_2'];
+// Map campaign level select index (0-2) to level IDs
+const CAMPAIGN_LEVEL_IDS = ['race_1', 'survival_1', 'logic_1'];
 
 export const useGameStore = create<GameState>((set, get) => ({
   phase: 'MENU',

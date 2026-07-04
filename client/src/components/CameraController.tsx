@@ -211,17 +211,7 @@ export const CameraController: React.FC = () => {
         const angle = time * 0.18;
         menuCamPos.set(Math.sin(angle) * 6, 5.0, -5.8 + Math.cos(angle) * 6);
         menuLookAt.set(0, 0, -5.8);
-      } else if (currentLevelId === 'hunt_1') {
-        // Wide circle over the star collections
-        const angle = time * 0.2;
-        menuCamPos.set(Math.sin(angle) * 13, 6.5, Math.cos(angle) * 13);
-        menuLookAt.set(0, 1.0, 0);
-      } else if (currentLevelId === 'final_2') {
-        // Fly down from peak to starting line or vice-versa
-        const zPos = 18 + Math.sin(time * 0.12) * 14;
-        const yPos = 3.5 + (zPos / 48) * 5.0;
-        menuCamPos.set(Math.sin(time * 0.25) * 3.5, yPos + 3.0, zPos - 6.0);
-        menuLookAt.set(0, yPos + 1.0, zPos + 6.0);
+
       } else {
         // Fallback normal orbit
         const angle = time * 0.15;
@@ -296,16 +286,7 @@ export const CameraController: React.FC = () => {
         const xPos = -6 * (1 - t) + 6 * t;
         flyCamPos.set(xPos, 5.2, -5.8 + Math.cos(t * Math.PI) * 2.5);
         flyLookAt.set(0, 0, -5.8);
-      } else if (currentLevelId === 'hunt_1') {
-        // Swoop diagonal corner to corner
-        flyCamPos.set(-11 * (1 - t) + 11 * t, 8.5 - Math.sin(t * Math.PI) * 3.5, -11 * (1 - t) + 11 * t);
-        flyLookAt.set(0, 1.0, 0);
-      } else if (currentLevelId === 'final_2') {
-        // Majestic climb up the incline ramp toward the crown
-        const zPos = t * 48.0;
-        const yPos = (zPos / 48.0) * 7.8;
-        flyCamPos.set(Math.sin(t * Math.PI * 3) * 2.0, yPos + 3.2, zPos - 6.0);
-        flyLookAt.set(0, yPos + 1.2, zPos + 6.0);
+
       } else {
         // Fallback flyover
         flyCamPos.set(0, 6, -10 + t * 20);

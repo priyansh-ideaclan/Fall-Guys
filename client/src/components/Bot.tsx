@@ -104,32 +104,8 @@ const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
 
 const LEVEL_1_NODES = LEVEL_1_MIDDLE_PATH;
 
-const LEVEL_2_NODES: Array<[number, number, number]> = [
-  [0, 0, 0], [0, 0, 6], [-2, 0, 7], [0, 0, 12.5], [2, 0, 18], [0, 0, 27.5],
-  [0, 0, 31.5], [0, 0, 37.5], [0, 0, 45.5], [0, 0, 58.5], [0, 0, 71.0],
-  [0, 4.1, 80.0], [0, 4.1, 89.5]
-];
-
-const LEVEL_3_NODES: Array<[number, number, number]> = [
-  [0, 0, 0], [-1.6, 0.25, 10], [1.6, 0.25, 20], [0, 0, 15], [0, 0, 35.5],
-  [0, 0, 47.5], [-1.2, 0, 55.5], [1.2, 0, 65.0], [0, 0, 72.5], [0, 0, 81.0],
-  [-1.5, 0, 96.5], [1.5, 0, 96.5], [0, 0, 110.0]
-];
-
-const LEVEL_GATE_MAZE: Array<[number, number, number]> = [
-  [0, 0, 0], [-1.6, 0.5, 12], [0, 0.5, 24], [1.6, 0.5, 36], [0, 0.5, 46]
-];
-
-const LEVEL_FINAL_CLIMB: Array<[number, number, number]> = [
-  [0, 0, 0], [0, 1.2, 12], [-1.2, 0.8, 18], [1.2, 1.3, 24], [0, 4.8, 30], [0, 5.8, 38], [0, 8.8, 48]
-];
-
 const LEVEL_PATHS: Record<string, Array<[number, number, number]>> = {
   'race_1': LEVEL_1_NODES,
-  'race_2': LEVEL_2_NODES,
-  'race_3': LEVEL_3_NODES,
-  'logic_2': LEVEL_GATE_MAZE,
-  'final_2': LEVEL_FINAL_CLIMB,
 };
 
 export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty, spawnPos }) => {
@@ -378,15 +354,6 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       if (pos.z > 43.5 && botLastCheckpoint.current[2] < 43.5) botLastCheckpoint.current = [0, 2.2, 43.5];
       if (pos.z > 80 && botLastCheckpoint.current[2] < 80) botLastCheckpoint.current = [0, 14.7, 80];
       if (pos.z > 110 && botLastCheckpoint.current[2] < 110) botLastCheckpoint.current = [0, 5.7, 110];
-    } else if (currentLevelId === 'race_2') {
-      if (pos.z > 43 && botLastCheckpoint.current[2] < 43) botLastCheckpoint.current = [0, 1.2, 45.5];
-      if (pos.z > 78 && botLastCheckpoint.current[2] < 78) botLastCheckpoint.current = [0, 5.2, 80];
-    } else if (currentLevelId === 'race_3') {
-      if (pos.z > 45 && botLastCheckpoint.current[2] < 45) botLastCheckpoint.current = [0, 1.2, 47.5];
-    } else if (currentLevelId === 'logic_2') {
-      if (pos.z > 18 && botLastCheckpoint.current[2] < 18) botLastCheckpoint.current = [0, 1.2, 20];
-    } else if (currentLevelId === 'final_2') {
-      if (pos.z > 42 && botLastCheckpoint.current[2] < 42) botLastCheckpoint.current = [0, 8.5, 48];
     }
 
     // 1. Raycast ground check (Velocity Locked & Offset Origin)
@@ -412,10 +379,10 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     }
 
     // 2. Teleport check or instant elimination if fell below boundaries
-    const killBoundaryY = (currentLevelId === 'final_1' || currentLevelId === 'logic_1' || currentLevelId === 'survival_2') ? 0.0 : -8.0;
+    const killBoundaryY = (currentLevelId === 'logic_1') ? 0.0 : -8.0;
     if (pos.y < killBoundaryY) {
       useGameStore.getState().triggerSplash([pos.x, -8.2, pos.z], '#ff007f');
-      if (currentLevelType === 'SURVIVAL' || currentLevelType === 'LOGIC' || currentLevelId === 'final_1') {
+      if (currentLevelType === 'SURVIVAL' || currentLevelType === 'LOGIC') {
         // Eliminated!
         setIsEliminated(true);
         eliminateBot(id);
@@ -578,11 +545,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       activeSpeed = 0;
     }
 
-    // Natural hesitation slowdown before gap jumps for Easy/Medium bots
-    const isNearGap = (currentLevelId === 'race_2' && pos.z > 7.5 && pos.z < 9.5) || (currentLevelId === 'race_2' && pos.z > 22.5 && pos.z < 24.5);
-    if (isNearGap && (difficulty === 'EASY' || difficulty === 'MEDIUM') && Math.random() < 0.25) {
-      activeSpeed *= 0.65;
-    }
+
 
     // Custom pattern windmill at Landmark 11 (Z = 22.0) and bridge windmills (Z = 68.0) timing checks
     const isNearLandmark11Windmill = currentLevelId === 'race_1' && pos.x < -4.0 && pos.z > 19.5 && pos.z < 24.5;
@@ -759,39 +722,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
       steerDir.y = 0;
       steerDir.normalize();
-    } else if (currentLevelId === 'survival_2') {
-      // Lava platform climb
-      const botIdx = parseInt(id.replace('bot_', '')) || 0;
-      const cycle = state.clock.getElapsedTime() % 8;
-      const isLavaThreat = cycle > 2.0;
 
-      if (isLavaThreat) {
-        // Run to designated safe pillar
-        const pillars: [number, number, number][] = [
-          [-5, 1.8, -5],
-          [5, 1.8, -5],
-          [-5, 1.8, 5],
-          [5, 1.8, 5],
-        ];
-        const targetPillar = pillars[botIdx % 4];
-        const targetPos = new THREE.Vector3(...targetPillar);
-
-        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
-        steerDir.y = 0;
-        steerDir.normalize();
-
-        // Jump if near the pillar base to climb it
-        const flatDist = new THREE.Vector2(pos.x - targetPillar[0], pos.z - targetPillar[2]).length();
-        if (flatDist < 2.0 && pos.y < 1.4 && isGroundedRef.current && jumpCooldown.current <= 0) {
-          shouldJump = true;
-        }
-      } else {
-        // Chill near center starting deck
-        const targetPos = new THREE.Vector3(0, 1.2, 0);
-        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
-        steerDir.y = 0;
-        steerDir.normalize();
-      }
     } else if (currentLevelId === 'logic_1') {
       // Memory color blocks
       const botIdx = parseInt(id.replace('bot_', '')) || 0;
@@ -833,70 +764,6 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
       steerDir.y = 0;
       steerDir.normalize();
-    } else if (currentLevelId === 'hunt_1') {
-      // Star Hunt: find closest active star in 3D scene
-      const stars = state.scene.children.filter((child) => child.name === 'star');
-      let closestStar: THREE.Object3D | null = null;
-      let minDist = 9999;
-
-      stars.forEach((star) => {
-        const starPos = new THREE.Vector3();
-        star.getWorldPosition(starPos);
-        const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(starPos);
-        if (dist < minDist) {
-          minDist = dist;
-          closestStar = star;
-        }
-      });
-
-      if (closestStar) {
-        const targetPos = new THREE.Vector3();
-        (closestStar as THREE.Object3D).getWorldPosition(targetPos);
-        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
-        steerDir.y = 0;
-        steerDir.normalize();
-
-        const flatDist = new THREE.Vector2(pos.x - targetPos.x, pos.z - targetPos.z).length();
-        if (flatDist < 1.0 && targetPos.y > pos.y + 1.2 && isGroundedRef.current && jumpCooldown.current <= 0) {
-          shouldJump = true;
-        }
-      } else {
-        const targetPos = new THREE.Vector3(0, 0, 0);
-        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
-        steerDir.y = 0;
-        steerDir.normalize();
-      }
-    } else if (currentLevelId === 'final_1') {
-      // Honeycomb hex collapse
-      let closestHex: THREE.Object3D | null = null;
-      let minDist = 9999;
-
-      state.scene.traverse((child) => {
-        if (child.userData && child.userData.active === true) {
-          const hexPos = new THREE.Vector3();
-          child.getWorldPosition(hexPos);
-          if (hexPos.y <= pos.y + 0.3 && hexPos.y >= pos.y - 4.0) {
-            const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(hexPos);
-            if (dist < minDist) {
-              minDist = dist;
-              closestHex = child;
-            }
-          }
-        }
-      });
-
-      if (closestHex) {
-        const targetPos = new THREE.Vector3();
-        (closestHex as THREE.Object3D).getWorldPosition(targetPos);
-        steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
-        steerDir.y = 0;
-        steerDir.normalize();
-
-        const flatDist = new THREE.Vector2(pos.x - targetPos.x, pos.z - targetPos.z).length();
-        if (flatDist > 0.8 && flatDist < 2.5 && isGroundedRef.current && jumpCooldown.current <= 0) {
-          shouldJump = true;
-        }
-      }
     }
 
     // Add waddle steering drift

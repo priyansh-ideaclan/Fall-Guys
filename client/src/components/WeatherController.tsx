@@ -5,101 +5,18 @@ import { useGameStore } from '../store/useGameStore';
 import { audioManager } from '../utils/audioManager';
 import { getThemeConfig } from '../utils/themeManager';
 
-// Piecewise linear interpolation keyframes along the Z-axis of the course
-const KEYFRAMES = [
-  {
-    z: 10.0,
-    ambColor: new THREE.Color("#ffffff"),
-    ambInt: 0.8,
-    dirColor: new THREE.Color("#ffd1a9"),
-    dirInt: 1.25,
-    fogColor: new THREE.Color("#a3d2ff"),
-    fogFar: 180,
-    rain: 0.0,
-    leaves: 0.0,
-    snow: 0.0,
-    confetti: 0.0
-  },
-  {
-    z: 28.0,
-    ambColor: new THREE.Color("#78909c"),
-    ambInt: 0.55,
-    dirColor: new THREE.Color("#546e7a"),
-    dirInt: 0.7,
-    fogColor: new THREE.Color("#90a4ae"),
-    fogFar: 110,
-    rain: 1.0,
-    leaves: 0.0,
-    snow: 0.0,
-    confetti: 0.0
-  },
-  {
-    z: 55.0,
-    ambColor: new THREE.Color("#e69a5e"),
-    ambInt: 0.72,
-    dirColor: new THREE.Color("#ff7043"),
-    dirInt: 1.15,
-    fogColor: new THREE.Color("#d87d4a"),
-    fogFar: 130,
-    rain: 0.0,
-    leaves: 1.0,
-    snow: 0.0,
-    confetti: 0.0
-  },
-  {
-    z: 84.0,
-    ambColor: new THREE.Color("#90caf9"),
-    ambInt: 0.6,
-    dirColor: new THREE.Color("#bbdefb"),
-    dirInt: 0.85,
-    fogColor: new THREE.Color("#cfd8dc"),
-    fogFar: 90,
-    rain: 0.0,
-    leaves: 0.0,
-    snow: 1.0,
-    confetti: 0.0
-  },
-  {
-    z: 112.0,
-    ambColor: new THREE.Color("#ff80ab"),
-    ambInt: 0.95,
-    dirColor: new THREE.Color("#f50057"),
-    dirInt: 1.3,
-    fogColor: new THREE.Color("#f8bbd0"),
-    fogFar: 165,
-    rain: 0.0,
-    leaves: 0.0,
-    snow: 0.0,
-    confetti: 1.0
-  }
-];
-
-function getBiomeParameters(z: number) {
-  if (z <= KEYFRAMES[0].z) return KEYFRAMES[0];
-  if (z >= KEYFRAMES[KEYFRAMES.length - 1].z) return KEYFRAMES[KEYFRAMES.length - 1];
-
-  for (let i = 0; i < KEYFRAMES.length - 1; i++) {
-    const k1 = KEYFRAMES[i];
-    const k2 = KEYFRAMES[i + 1];
-    if (z >= k1.z && z <= k2.z) {
-      const t = (z - k1.z) / (k2.z - k1.z);
-      return {
-        z,
-        ambColor: k1.ambColor.clone().lerp(k2.ambColor, t),
-        ambInt: THREE.MathUtils.lerp(k1.ambInt, k2.ambInt, t),
-        dirColor: k1.dirColor.clone().lerp(k2.dirColor, t),
-        dirInt: THREE.MathUtils.lerp(k1.dirInt, k2.dirInt, t),
-        fogColor: k1.fogColor.clone().lerp(k2.fogColor, t),
-        fogFar: THREE.MathUtils.lerp(k1.fogFar, k2.fogFar, t),
-        rain: THREE.MathUtils.lerp(k1.rain, k2.rain, t),
-        leaves: THREE.MathUtils.lerp(k1.leaves, k2.leaves, t),
-        snow: THREE.MathUtils.lerp(k1.snow, k2.snow, t),
-        confetti: THREE.MathUtils.lerp(k1.confetti, k2.confetti, t)
-      };
-    }
-  }
-  return KEYFRAMES[0];
-}
+// Static pre-allocated configuration to prevent color object instantiations every frame
+const STATIC_WEATHER_PARAMS = {
+  ambColor: new THREE.Color("#ffffff"),
+  ambInt: 0.9,
+  dirColor: new THREE.Color("#ffffff"),
+  dirInt: 1.35,
+  fogColor: new THREE.Color("#87ceeb"), // sky blue
+  fogFar: 220,
+  rain: 0.0,
+  leaves: 0.35,
+  snow: 0.0,
+};
 
 export const WeatherController: React.FC = () => {
   const { scene } = useThree();
@@ -222,23 +139,11 @@ export const WeatherController: React.FC = () => {
     }
 
     const evalZ = playerPos.z;
-    let params = getBiomeParameters(evalZ);
-
-    if (currentLevelId === 'race_1') {
-      params = {
-        z: evalZ,
-        ambColor: new THREE.Color("#ffffff"),
-        ambInt: 0.9,
-        dirColor: new THREE.Color("#ffffff"),
-        dirInt: 1.35,
-        fogColor: new THREE.Color("#87ceeb"), // sky blue
-        fogFar: 220,
-        rain: 0.0,
-        leaves: 0.35, // flower petals / leaves
-        snow: 0.0,
-        confetti: evalZ > 115.0 ? 0.95 : 0.0
-      };
-    }
+    const params = {
+      ...STATIC_WEATHER_PARAMS,
+      z: evalZ,
+      confetti: evalZ > 115.0 ? 0.95 : 0.0
+    };
 
     // 2. Interpolate lighting & fog
     if (ambientLightRef.current) {

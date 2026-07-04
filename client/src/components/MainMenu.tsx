@@ -8,8 +8,6 @@ const LEVEL_NAMES = [
   'Level 1: Race – Beginner Bounds',
   'Level 2: Survival – Spinning Arena',
   'Level 3: Memory – Tile Showdown',
-  'Level 4: Hunt – Star Collector',
-  'Level 5: Final – Crown Peak Climb',
 ];
 
 const COLORS = [
