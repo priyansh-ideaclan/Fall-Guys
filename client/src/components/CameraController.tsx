@@ -79,6 +79,7 @@ export const CameraController: React.FC = () => {
   const smoothCamPos    = useRef(new THREE.Vector3(0, 6, -10));
   const smoothLookAt    = useRef(new THREE.Vector3(0, 1, 0));
   const nitroEffectVal  = useRef(0);
+  const slideEffectVal  = useRef(0);
   const isNitroActive   = useGameStore((state) => state.isNitroActive);
   const isPlayerSliding = useGameStore((state) => state.isPlayerSliding);
 
@@ -368,11 +369,13 @@ export const CameraController: React.FC = () => {
     // Camera rotation is decoupled from character facing direction, preventing auto-spinning on S.
 
     const targetEffect = (phase === 'PLAYING' && isNitroActive) ? 1.0 : 0.0;
+    const targetSlideEffect = (phase === 'PLAYING' && isPlayerSliding) ? 1.0 : 0.0;
     nitroEffectVal.current = THREE.MathUtils.lerp(nitroEffectVal.current, targetEffect, delta * 8);
+    slideEffectVal.current = THREE.MathUtils.lerp(slideEffectVal.current, targetSlideEffect, delta * 6);
 
-    // Apply dynamic FOV zoom
+    // Apply dynamic FOV zoom (wider field of view during Nitro and Slide)
     if ('fov' in camera) {
-      (camera as THREE.PerspectiveCamera).fov = 60 + nitroEffectVal.current * 14; // FOV goes from 60 to 74
+      (camera as THREE.PerspectiveCamera).fov = 60 + nitroEffectVal.current * 14 + slideEffectVal.current * 10; // FOV goes from 60 up to 84
       (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
     }
 

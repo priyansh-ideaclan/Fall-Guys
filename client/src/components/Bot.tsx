@@ -25,23 +25,22 @@ const LEVEL_1_LEFT_PATH: [number, number, number][] = [
   [-7.5, 0.5, 33.0],  // Left mud area
   [0, 1.0, 40.6],    // Merge Checkpoint 2
   [0, 1.05, 47.0],   // Jump Pad
-  [0, 7.5, 54.0],    // Landing deck Storey 1 – far-left gap, thread X=-4.5 through all pillars
-  [-4.5, 7.5, 54.0], // Bumpy Pillar Arena – hug far left (clear of Pillar 1, 4 at X=-2.5)
-  [-6.0, 7.9, 61.0], // Combined platform – far-left gap (clear of all 3 windmills)
-  [-6.5, 8.7, 65.5], // Arena left edge (clear of center Hammer 1 arc)
-  [-6.5, 8.7, 69.5], // Arena left edge (between Hammer 2 and Hammer 4)
-  [-6.5, 8.7, 73.5], // Arena left exit (clear of Hammer 5 & 6)
-  [0, 8.7, 76.5],   // Checkpoint 3
-  [-5.0, 8.5, 76.0], // Left water slide entry
-  [-5.0, 5.0, 83.0], // Left water slide mid
-  [0, 4.1, 88.0],    // Slide landing deck
-  [0, 5.2, 94.0],    // Walkway
-  [0, 4.5, 100.0],   // Checkpoint 4
+  [0, 7.5, 53.5],    // Landing deck Storey 1 – far-left gap, thread X=-4.5 through all pillars
+  [-4.5, 7.5, 53.5], // Bumpy Pillar Arena – hug far left (clear of Pillar 1, 4 at X=-2.5)
+  [-3.8, 8.3, 61.8], // Combined platform windmill crossing (left third)
+  [-2.5, 8.3, 63.5], // Jump Pad on Combined platform (launch to Hammer Arena)
+  [-6.5, 9.1, 67.0], // Arena left edge (clear of center Hammer 1 arc)
+  [-6.5, 9.1, 70.0], // Arena left edge (between Hammer 2 and Hammer 4)
+  [-6.5, 9.1, 73.8], // Arena left exit (clear of Hammer 5 & 6)
+  [0, 9.1, 76.3],   // Checkpoint 3
+  [-4.5, 9.1, 77.0], // Left water slide entry
+  [-5.0, 6.8, 83.5], // Left water slide mid
+  [-5.0, 4.5, 92.0], // Slide landing deck (left)
+  [-3.0, 4.5, 97.0], // Left bridge plank
+  [-3.0, 4.5, 100.0], // Checkpoint 4 (left lane)
   [-3.0, 4.5, 105.0], // Left lane flat road
-  [-3.0, 5.2, 109.0], // Left side gate
-  [0, 1.1, 120.0],   // Speed slide
-  [0, -1.8, 128.0],  // Final rotating sweeper
-  [0, -2.4, 135.0]   // Finish Archway
+  [-3.0, 4.5, 109.0], // Left side gate
+  [0, 4.5, 114.0]    // Finish Archway
 ];
 
 const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
@@ -56,25 +55,23 @@ const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
   [-1.2, 0.85, 39.0], // Platform D
   [0, 1.0, 40.6],    // Checkpoint 2
   [0, 1.05, 47.0],   // Jump Pad
-  [0, 7.5, 54.0],    // Landing deck Storey 1
-  [0, 7.5, 54.0],    // Landing deck Storey 1 – thread center corridor
+  [0, 7.5, 53.5],    // Landing deck Storey 1 – thread center corridor
   [-1.4, 7.5, 51.5], // Bumpy Pillar entry: gap between Pillar 1 (X=-2.5) & Pillar 2 (X=+2.5)
-  [0.0, 7.5, 54.0],  // Center gap past Pillar 3 (aim slightly right)
-  [-2.0, 7.9, 61.0], // Combined platform – gap between WM1 & WM2 (X=-3.8 and X=0)
-  [6.5, 8.7, 65.5],  // Arena right edge entry (dodge Hammer 1 center)
-  [-6.5, 8.7, 69.5], // Arena left side mid (between Hammer 3 and Hammer 4)
-  [6.5, 8.7, 73.5],  // Arena right exit (dodge Hammer 5)
-  [0, 8.7, 76.5],   // Checkpoint 3
-  [0.0, 8.5, 76.0],  // Middle slide entry
-  [0.0, 5.0, 83.0],  // Middle slide mid
-  [0, 4.1, 88.0],    // Slide landing deck
-  [0, 5.2, 94.0],    // Walkway
-  [0, 4.5, 100.0],   // Checkpoint 4
+  [0.0, 7.5, 53.5],  // Center gap past Pillar 3
+  [0.0, 8.3, 61.8],  // Combined platform windmill crossing (center)
+  [-2.5, 8.3, 63.5], // Jump Pad on Combined platform (launch to Hammer Arena)
+  [6.5, 9.1, 67.0],  // Arena right edge entry (dodge Hammer 1 center)
+  [-6.5, 9.1, 70.0], // Arena left side mid (between Hammer 3 and Hammer 4)
+  [6.5, 9.1, 73.8],  // Arena right exit (dodge Hammer 5)
+  [0, 9.1, 76.3],   // Checkpoint 3
+  [0.0, 9.1, 77.0],  // Middle slide entry
+  [0.0, 6.8, 83.5],  // Middle slide mid
+  [0.0, 4.5, 92.0],  // Slide landing deck (center)
+  [-3.0, 4.5, 97.0], // Left bridge plank (chosen for middle path)
+  [0.0, 4.5, 100.0], // Checkpoint 4 (middle lane)
   [0.0, 4.5, 105.0], // Middle lane road
-  [0.0, 5.2, 109.0], // Middle moving gate
-  [0, 1.1, 120.0],   // Speed slide
-  [0, -1.8, 128.0],  // Final rotating sweeper
-  [0, -2.4, 135.0]   // Finish Archway
+  [0.0, 4.5, 109.0], // Middle moving gate
+  [0, 4.5, 114.0]    // Finish Archway
 ];
 
 const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
@@ -87,23 +84,22 @@ const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
   [7.5, 0.1, 34.0],  // Hammer platform
   [0, 1.0, 40.6],    // Checkpoint 2
   [0, 1.05, 47.0],   // Jump Pad
-  [0, 7.5, 54.0],    // Landing deck Storey 1 – far-right gap, thread X=+4.5 through all pillars
-  [4.5, 7.5, 54.0],  // Bumpy Pillar Arena – hug far right (clear of Pillar 2, 5 at X=+2.5)
-  [6.0, 7.9, 61.0],  // Combined platform – far-right gap (clear of all 3 windmills)
-  [6.5, 8.7, 65.5],  // Arena right edge entry (dodge Hammer 1)
-  [6.5, 8.7, 69.5],  // Arena right mid (between Hammer 3 and Hammer 4)
-  [-6.5, 8.7, 73.5], // Arena left exit (dodge Hammer 6)
-  [0, 8.7, 76.5],   // Checkpoint 3
-  [5.0, 8.5, 76.0],  // Right slide entry
-  [5.0, 5.0, 83.0],  // Right slide mid
-  [0, 4.1, 88.0],    // Slide landing deck
-  [0, 5.2, 94.0],    // Walkway
-  [0, 4.5, 100.0],   // Checkpoint 4
+  [0, 7.5, 53.5],    // Landing deck Storey 1 – far-right gap, thread X=+4.5 through all pillars
+  [4.5, 7.5, 53.5],  // Bumpy Pillar Arena – hug far right (clear of Pillar 2, 5 at X=+2.5)
+  [3.8, 8.3, 61.8],  // Combined platform windmill crossing (right third)
+  [2.5, 8.3, 63.5],  // Jump Pad on Combined platform (launch to Hammer Arena)
+  [6.5, 9.1, 67.0],  // Arena right edge entry (dodge Hammer 1)
+  [6.5, 9.1, 70.0],  // Arena right mid (between Hammer 3 and Hammer 4)
+  [-6.5, 9.1, 73.8], // Arena left exit (dodge Hammer 6)
+  [0, 9.1, 76.3],   // Checkpoint 3
+  [4.5, 9.1, 77.0],  // Right slide entry
+  [5.0, 6.8, 83.5],  // Right slide mid
+  [5.0, 4.5, 92.0],  // Slide landing deck (right)
+  [3.0, 4.5, 97.0],  // Right bridge plank
+  [3.0, 4.5, 100.0], // Checkpoint 4 (right lane)
   [3.0, 4.5, 105.0], // Right shortcut entry
-  [3.0, 4.1, 112.5], // Right balance beam
-  [0, 1.1, 120.0],   // Speed slide
-  [0, -1.8, 128.0],  // Final rotating sweeper
-  [0, -2.4, 135.0]   // Finish Archway
+  [3.0, 4.5, 109.0], // Right side gate
+  [0, 4.5, 114.0]    // Finish Archway
 ];
 
 const LEVEL_1_NODES = LEVEL_1_MIDDLE_PATH;
@@ -425,7 +421,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       new THREE.Vector3(0, -1, 0)
     );
     const intersects = raycaster.intersectObjects(state.scene.children, true);
-    if (intersects.length > 0 && intersects[0].distance < 0.65) {
+    if (intersects.length > 0 && intersects[0].distance < 0.85) {
       const hitObj = intersects[0].object;
       if (hitObj.userData && hitObj.userData.surface) {
         currentSurface = hitObj.userData.surface;
@@ -454,7 +450,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     if (isSliding) {
       activeSpeed = 9.2; // Slide momentum
-      accelerationRatio = 0.045; // lower control
+      accelerationRatio = 0.28; // lower control
     }
 
     if (currentSurface === 'ice') {
@@ -891,6 +887,17 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     let moveTargetZ = steerDir.z * activeSpeed;
     let moveTargetY = vel.y;
 
+    if (isSliding) {
+      // Effortless automatic slide down (+Z)
+      moveTargetZ = 12.8;
+      // Allow slight left/right lane steering (based on their path steering direction X)
+      moveTargetX = steerDir.x * 2.6;
+      // Low control friction
+      accelerationRatio = 0.065;
+      // Disable jumping while sliding
+      shouldJump = false;
+    }
+
     // Apply slight upward lift when bot is caught by strong wind
     if (Math.abs(windForceX) > 2.8) {
       moveTargetY += delta * 6.5;
@@ -1050,11 +1057,32 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         const other = event.other.rigidBodyObject;
         if (other && (other.name === 'rotating-arm' || other.name === 'windmill-blade')) {
           const botPos = rigidBodyRef.current!.translation();
-          const otherPos = other.position;
-          const dir = new THREE.Vector3(botPos.x - otherPos.x, 0.2, botPos.z - otherPos.z).normalize();
+          const otherWorldPos = new THREE.Vector3();
+          other.getWorldPosition(otherWorldPos);
+
+          // Radial vector pointing outwards from the obstacle center
+          const radial = new THREE.Vector3(botPos.x - otherWorldPos.x, 0, botPos.z - otherWorldPos.z).normalize();
           
-          knockbackVelRef.current.copy(dir).multiplyScalar(8.5);
-          knockbackTimerRef.current = 0.45;
+          // Tangential direction matching rotation direction
+          let speedVal = 1.8;
+          if (other.userData && typeof other.userData.speed === 'number') {
+            speedVal = other.userData.speed;
+          }
+          const sign = speedVal >= 0 ? 1 : -1;
+          const tangent = new THREE.Vector3(-radial.z * sign, 0.2, radial.x * sign);
+
+          // Combine 65% tangent sweep + 35% radial push outward for realistic direction
+          const dir = new THREE.Vector3()
+            .addScaledVector(tangent, 0.65)
+            .addScaledVector(radial, 0.35)
+            .normalize();
+          dir.y = 0.24; // slight upward lift
+
+          // Stronger knockback force for rotating sweepers
+          const knockForce = other.name === 'rotating-arm' ? 12.8 : 8.5;
+          
+          knockbackVelRef.current.copy(dir).multiplyScalar(knockForce);
+          knockbackTimerRef.current = 0.5;
           useGameStore.getState().triggerSplash([botPos.x, botPos.y, botPos.z], '#00e5ff'); // Blue splash!
         }
       }}

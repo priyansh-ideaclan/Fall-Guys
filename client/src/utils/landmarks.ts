@@ -41,10 +41,7 @@ export const LEVEL_1_LANDMARKS: LandmarkConfig[] = [
   { pos: [8.5, 4.5, 88.0], section: 'Right Mud Trap' },            // LM 35
   { pos: [3.5, 4.5, 94.0], section: 'Swinging Pendulum Hammer' },  // LM 36
   { pos: [0.0, 4.5, 100.0], section: 'Checkpoint 4' },            // LM 37
-  { pos: [0.0, 4.5, 105.0], section: 'Sprint Road Start' },        // LM 38
-  { pos: [-3.0, 4.5, 109.0], section: 'Moving Barrier Gates' },     // LM 39
-  { pos: [3.0, 4.5, 112.5], section: 'Balance Beam & Fan' },       // LM 40
-  { pos: [0.0, 1.5, 120.0], section: 'Slanted Finish Ramp' },      // LM 41
-  { pos: [0.0, -1.2, 128.0], section: 'Final Sweeper Hazard' },    // LM 42
-  { pos: [0.0, -1.2, 135.0], section: 'Finish Trigger Sensor' }    // LM 43
+  { pos: [0.0, 4.5, 107.5], section: 'Sprint Road Center' },       // LM 38
+  { pos: [0.0, 4.5, 114.5], section: 'Cannon Obstacle Section' },  // LM 39
+  { pos: [0.0, 4.5, 119.0], section: 'Finish Trigger Sensor' }     // LM 40
 ];

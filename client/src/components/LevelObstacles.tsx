@@ -59,6 +59,7 @@ interface RotatingSweeperProps {
 
 export const RotatingSweeper: React.FC<RotatingSweeperProps> = ({ position, radius, height, speed, color = '#ff007f', name = 'rotating-arm' }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const cooldownRef = useRef<Record<string, number>>({});
 
   useFrame((state) => {
     const rb = rigidBodyRef.current;
@@ -71,6 +72,45 @@ export const RotatingSweeper: React.FC<RotatingSweeperProps> = ({ position, radi
     rb.setNextKinematicRotation(q);
   });
 
+  const handleHit = (event: any) => {
+    const otherBody: RapierRigidBody | undefined = event.rigidBody;
+    const otherObj = event.rigidBodyObject;
+    if (!otherBody || !otherObj) return;
+    if (otherObj.name !== 'player' && otherObj.name !== 'bot') return;
+
+    // Throttle: max one knockback per body per 0.6s
+    const id = otherObj.uuid || otherObj.name;
+    const now = performance.now() / 1000;
+    if (cooldownRef.current[id] && now - cooldownRef.current[id] < 0.6) return;
+    cooldownRef.current[id] = now;
+
+    // Compute radial knockback direction from pivot to target
+    const pivotWorld = new THREE.Vector3(...position);
+    const targetPos = otherBody.translation();
+    const radialDir = new THREE.Vector3(
+      targetPos.x - pivotWorld.x,
+      0,
+      targetPos.z - pivotWorld.z
+    ).normalize();
+
+    // Tangential direction (perpendicular, matching rotation direction)
+    const sign = speed >= 0 ? 1 : -1;
+    const tangentialDir = new THREE.Vector3(
+      -radialDir.z * sign,
+      0,
+      radialDir.x * sign
+    );
+
+    // Strong combined knockback: 70% sweep + 30% push outward
+    const KNOCK = 16.5;
+    const UP_BOOST = 6.2;
+    const kx = (tangentialDir.x * 0.7 + radialDir.x * 0.3) * KNOCK;
+    const kz = (tangentialDir.z * 0.7 + radialDir.z * 0.3) * KNOCK;
+
+    otherBody.setLinvel({ x: kx, y: UP_BOOST, z: kz }, true);
+    audioManager.playJump?.();
+  };
+
   return (
     <group position={position} name={name}>
       <RigidBody type="fixed" colliders={false}>
@@ -81,7 +121,16 @@ export const RotatingSweeper: React.FC<RotatingSweeperProps> = ({ position, radi
         </mesh>
       </RigidBody>
 
-      <RigidBody ref={rigidBodyRef} type="kinematicPosition" colliders="cuboid" friction={0.8} restitution={1.2}>
+      <RigidBody
+        ref={rigidBodyRef}
+        type="kinematicPosition"
+        colliders="cuboid"
+        name={name}
+        onCollisionEnter={handleHit}
+        friction={0.8}
+        restitution={1.2}
+        userData={{ speed }}
+      >
         <mesh castShadow position={[0, height - 0.15, 0]}>
           <boxGeometry args={[radius * 2, 0.25, 0.15]} />
           <meshStandardMaterial color={color} roughness={0.2} emissive={color} emissiveIntensity={0.2} />
@@ -91,15 +140,15 @@ export const RotatingSweeper: React.FC<RotatingSweeperProps> = ({ position, radi
   );
 };
 
-// Jump Pad (Bounce Pad)
 interface JumpPadProps {
   position: [number, number, number];
   boostForce?: number;
   color?: string;
   scale?: number;
+  boostZ?: number;
 }
 
-export const JumpPad: React.FC<JumpPadProps> = ({ position, boostForce = 12.5, color = '#00e5ff', scale = 1.0 }) => {
+export const JumpPad: React.FC<JumpPadProps> = ({ position, boostForce = 12.5, color = '#00e5ff', scale = 1.0, boostZ }) => {
   const [pulse, setPulse] = useState(false);
   const particles = useRef<Array<{ pos: THREE.Vector3; vel: THREE.Vector3; scale: number }>>([]);
   const pointsRef = useRef<THREE.Points>(null);
@@ -109,7 +158,8 @@ export const JumpPad: React.FC<JumpPadProps> = ({ position, boostForce = 12.5, c
     const otherObject = event.rigidBodyObject;
     if (otherBody && otherObject && (otherObject.name === 'player' || otherObject.name === 'bot')) {
       const vel = otherBody.linvel();
-      otherBody.setLinvel({ x: vel.x * 0.5, y: boostForce, z: Math.max(0, vel.z) * 0.2 + 1.2 }, true);
+      const zSpeed = boostZ !== undefined ? boostZ : (Math.max(0, vel.z) * 0.2 + 1.2);
+      otherBody.setLinvel({ x: vel.x * 0.5, y: boostForce, z: zSpeed }, true);
       audioManager.playJump();
       
       setPulse(true);
@@ -1528,7 +1578,6 @@ export const BumpyPillar: React.FC<BumpyPillarProps> = ({
 
 // ─── SpinningHammer ──────────────────────────────────────────────────────────
 
-
 interface SpinningHammerProps {
   position: [number, number, number];
   speed: number;             // base rad/s, positive = CCW, negative = CW
@@ -1536,6 +1585,7 @@ interface SpinningHammerProps {
   color?: string;            // hammer head color
   armColor?: string;         // arm bar color
   variable?: boolean;        // if true, speed oscillates slow→fast→slow
+  mountingHeight?: number;   // height of rotating arm
 }
 
 export const SpinningHammer: React.FC<SpinningHammerProps> = ({
@@ -1545,6 +1595,7 @@ export const SpinningHammer: React.FC<SpinningHammerProps> = ({
   color = '#ff2d6f',
   armColor = '#ffe033',
   variable = false,
+  mountingHeight = 1.2,
 }) => {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const angleRef = useRef(0);
@@ -1626,13 +1677,13 @@ export const SpinningHammer: React.FC<SpinningHammerProps> = ({
             emissive="#ffd60a" emissiveIntensity={0.4} />
         </mesh>
         {/* Pillar shaft */}
-        <CylinderCollider args={[0.5, 0.32]} position={[0, 0.6, 0]} />
-        <mesh castShadow position={[0, 0.6, 0]}>
-          <cylinderGeometry args={[0.28, 0.32, 1.0, 18]} />
+        <CylinderCollider args={[mountingHeight / 2, 0.32]} position={[0, mountingHeight / 2, 0]} />
+        <mesh castShadow position={[0, mountingHeight / 2, 0]}>
+          <cylinderGeometry args={[0.28, 0.32, mountingHeight, 18]} />
           <meshStandardMaterial color="#ff007f" roughness={0.2} metalness={0.35} />
         </mesh>
         {/* Pillar top cap sphere */}
-        <mesh position={[0, 1.16, 0]} castShadow>
+        <mesh position={[0, mountingHeight + 0.06, 0]} castShadow>
           <sphereGeometry args={[0.32, 18, 18]} />
           <meshStandardMaterial color="#ff5fab" roughness={0.1} metalness={0.55} />
         </mesh>
@@ -1647,19 +1698,19 @@ export const SpinningHammer: React.FC<SpinningHammerProps> = ({
         onCollisionEnter={handleHit}
       >
         {/* Arm bar collider + mesh */}
-        <CuboidCollider args={[armHalf, 0.16, 0.16]} position={[0, 1.2, 0]} />
-        <mesh castShadow position={[0, 1.2, 0]}>
+        <CuboidCollider args={[armHalf, 0.16, 0.16]} position={[0, mountingHeight, 0]} />
+        <mesh castShadow position={[0, mountingHeight, 0]}>
           <boxGeometry args={[armHalf * 2, 0.32, 0.32]} />
           <meshStandardMaterial color={armColor} roughness={0.18} metalness={0.35} />
         </mesh>
         {/* Arm highlight gloss stripe */}
-        <mesh position={[0, 1.26, 0]}>
+        <mesh position={[0, mountingHeight + 0.06, 0]}>
           <boxGeometry args={[armHalf * 2, 0.06, 0.36]} />
           <meshStandardMaterial color="#ffffff" roughness={0.1} opacity={0.45} transparent />
         </mesh>
 
         {/* ── Hammer Head A (positive X end) ── */}
-        <group position={[armHalf, 1.2, 0]}>
+        <group position={[armHalf, mountingHeight, 0]}>
           <CuboidCollider args={[0.42, 0.42, 0.6]} />
           {/* Main body */}
           <mesh castShadow>
@@ -1684,7 +1735,7 @@ export const SpinningHammer: React.FC<SpinningHammerProps> = ({
         </group>
 
         {/* ── Hammer Head B (negative X end, mirrored) ── */}
-        <group position={[-armHalf, 1.2, 0]}>
+        <group position={[-armHalf, mountingHeight, 0]}>
           <CuboidCollider args={[0.42, 0.42, 0.6]} />
           <mesh castShadow>
             <boxGeometry args={[0.84, 0.84, 1.2]} />
@@ -1704,6 +1755,129 @@ export const SpinningHammer: React.FC<SpinningHammerProps> = ({
           </mesh>
         </group>
       </RigidBody>
+    </group>
+  );
+};
+
+
+// ─── CurvedSlide ──────────────────────────────────────────────────────────────
+// Procedurally generates a low-friction slide made of segments.
+// Supports sideOffset to create customizable curves, and automatically
+// renders side-guard walls to keep players and bots in the lane.
+
+interface CurvedSlideProps {
+  startX: number;
+  endX: number;
+  startY: number;
+  endY: number;
+  startZ: number;
+  endZ: number;
+  width: number;
+  color: string;
+  sideOffset?: number; // horizontal s-curve offset
+  segmentsCount?: number;
+  roughness?: number;
+  metalness?: number;
+  opacity?: number;
+}
+
+export const CurvedSlide: React.FC<CurvedSlideProps> = ({
+  startX,
+  endX,
+  startY,
+  endY,
+  startZ,
+  endZ,
+  width,
+  color,
+  sideOffset = 0,
+  segmentsCount = 8,
+  roughness = 0.1,
+  metalness = 0.3,
+  opacity = 0.9,
+}) => {
+  // Generate segment properties
+  const segments = useMemo(() => {
+    const arr = [];
+    const getPoint = (t: number) => {
+      const x = startX + (endX - startX) * t + sideOffset * Math.sin(t * Math.PI);
+      const y = startY + (endY - startY) * t;
+      const z = startZ + (endZ - startZ) * t;
+      return new THREE.Vector3(x, y, z);
+    };
+
+    for (let i = 0; i < segmentsCount; i++) {
+      const t0 = i / segmentsCount;
+      const t1 = (i + 1) / segmentsCount;
+      const p0 = getPoint(t0);
+      const p1 = getPoint(t1);
+
+      const center = p0.clone().add(p1).multiplyScalar(0.5);
+      const dir = p1.clone().sub(p0);
+      const length = dir.length();
+
+      const pitch = Math.atan2(-dir.y, Math.sqrt(dir.x * dir.x + dir.z * dir.z));
+      const yaw = Math.atan2(dir.x, dir.z);
+
+      arr.push({
+        position: [center.x, center.y, center.z] as [number, number, number],
+        rotation: [pitch, yaw, 0] as [number, number, number],
+        length,
+      });
+    }
+    return arr;
+  }, [startX, endX, startY, endY, startZ, endZ, sideOffset, segmentsCount]);
+
+  const isTransparent = opacity < 1.0;
+
+  return (
+    <group>
+      {segments.map((seg, idx) => (
+        <RigidBody
+          key={idx}
+          type="fixed"
+          colliders="cuboid"
+          position={seg.position}
+          rotation={seg.rotation}
+          friction={0.015}
+          restitution={0.05}
+          userData={{ surface: 'slide' }}
+        >
+          {/* Main Slide Floor */}
+          <mesh castShadow receiveShadow userData={{ surface: 'slide' }}>
+            <boxGeometry args={[width, 0.2, seg.length + 0.02]} />
+            <meshStandardMaterial
+              color={color}
+              roughness={roughness}
+              metalness={metalness}
+              transparent={isTransparent}
+              opacity={opacity}
+            />
+          </mesh>
+
+          {/* Left Guard Wall */}
+          <mesh position={[-width / 2 - 0.08, 0.28, 0]} castShadow>
+            <boxGeometry args={[0.16, 0.56, seg.length + 0.02]} />
+            <meshStandardMaterial color="#333333" roughness={0.5} />
+          </mesh>
+
+          {/* Right Guard Wall */}
+          <mesh position={[width / 2 + 0.08, 0.28, 0]} castShadow>
+            <boxGeometry args={[0.16, 0.56, seg.length + 0.02]} />
+            <meshStandardMaterial color="#333333" roughness={0.5} />
+          </mesh>
+
+          {/* Colorful border trim on walls */}
+          <mesh position={[-width / 2 - 0.08, 0.57, 0]}>
+            <boxGeometry args={[0.18, 0.06, seg.length + 0.04]} />
+            <meshStandardMaterial color={color} roughness={0.2} emissive={color} emissiveIntensity={0.2} />
+          </mesh>
+          <mesh position={[width / 2 + 0.08, 0.57, 0]}>
+            <boxGeometry args={[0.18, 0.06, seg.length + 0.04]} />
+            <meshStandardMaterial color={color} roughness={0.2} emissive={color} emissiveIntensity={0.2} />
+          </mesh>
+        </RigidBody>
+      ))}
     </group>
   );
 };

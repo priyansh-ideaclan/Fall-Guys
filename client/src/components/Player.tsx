@@ -313,7 +313,7 @@ export const Player: React.FC = () => {
       new THREE.Vector3(0, -1, 0)
     );
     const intersects = raycaster.intersectObjects(state.scene.children, true);
-    if (intersects.length > 0 && intersects[0].distance < 0.65) {
+    if (intersects.length > 0 && intersects[0].distance < 0.85) {
       const hitObj = intersects[0].object;
       if (hitObj.userData && hitObj.userData.surface) {
         currentSurface = hitObj.userData.surface;
@@ -345,20 +345,20 @@ export const Player: React.FC = () => {
       slideSoundTimer.current -= delta;
       if (slideSoundTimer.current <= 0 && isGroundedRef.current) {
         audioManager.playIceSlide();
-        slideSoundTimer.current = 0.16; // Loop sliding swish
+        slideSoundTimer.current = 0.15; // Loop sliding swish
       }
     } else if (currentSurface === 'mud') {
-      // Mud surface: slows down speeds and halves jumps
-      moveSpeed = 2.0;
-      jumpImpulse = 3.2;
-      mudSoundTimer.current -= delta;
+      // Mud surface: heavy drag & low jumps
+      accelerationRatio = 0.12;
+      moveSpeed = 2.2;
+      jumpImpulse = 3.2; // Mud jump height reduction
       if (mudSoundTimer.current <= 0 && isGroundedRef.current && new THREE.Vector3(rigidBody.linvel().x, 0, rigidBody.linvel().z).length() > 0.4) {
         audioManager.playMudSplat();
         mudSoundTimer.current = 0.22; // Loop mud squelches
       }
     } else if (currentSurface === 'speed-ramp' || currentSurface === 'slide') {
       // Slide surface: slide down with extremely high speed and low steering!
-      accelerationRatio = 0.045;
+      accelerationRatio = 0.28;
       moveSpeed = 9.2;
       slideSoundTimer.current -= delta;
       if (slideSoundTimer.current <= 0 && isGroundedRef.current) {
@@ -430,6 +430,18 @@ export const Player: React.FC = () => {
     let targetX = moveDir.x * moveSpeed;
     let targetZ = moveDir.z * moveSpeed;
 
+    if (currentSurface === 'slide' || currentSurface === 'speed-ramp') {
+      // Automatic slide downstream (+Z direction)
+      targetZ = 12.8;
+      // Ignore forward/backward controls, only allow slight left/right steering
+      let steerX = 0;
+      if (activeControls.left) steerX = -2.6;
+      else if (activeControls.right) steerX = 2.6;
+      targetX = steerX;
+      // Slippery glide steering response
+      accelerationRatio = 0.065;
+    }
+
     // Handle diving trigger
     if (activeControls.dive && !isDivingRef.current && diveCooldownRef.current <= 0) {
       isDivingRef.current = true;
@@ -468,8 +480,8 @@ export const Player: React.FC = () => {
       nextVelY += delta * 6.5;
     }
     
-    // Jump trigger (Double Jump Limit)
-    if (justPressedJump && !isDivingRef.current) {
+    // Jump trigger (Double Jump Limit) - disable on slide
+    if (justPressedJump && !isDivingRef.current && currentSurface !== 'slide' && currentSurface !== 'speed-ramp') {
       if (isGroundedRef.current || jumpCountRef.current === 1) {
         nextVelY = jumpImpulse;
         jumpCountRef.current++;
@@ -485,8 +497,18 @@ export const Player: React.FC = () => {
 
     rigidBody.setLinvel({ x: nextVelX, y: nextVelY, z: nextVelZ }, true);
 
-    // Update Nitro and Slide particle trail
     const isSliding = currentSurface === 'slide' || currentSurface === 'speed-ramp';
+
+    // Update slide wind sound whoosh based on player speed
+    if (phase === 'PLAYING') {
+      const speed = new THREE.Vector3(nextVelX, 0, nextVelZ).length();
+      const slideWindVol = isSliding ? (speed / 12.0) : 0.0;
+      audioManager.setSlideWindWhoosh(slideWindVol);
+    } else {
+      audioManager.setSlideWindWhoosh(0.0);
+    }
+
+    // Update Nitro and Slide particle trail
     if ((isNitroActive || isSliding) && Math.random() < 0.7) {
       nitroTrailParticles.current.push({
         pos: new THREE.Vector3(pos.x + (Math.random() - 0.5) * 0.35, pos.y - 0.45, pos.z + (Math.random() - 0.5) * 0.35),
@@ -682,11 +704,32 @@ export const Player: React.FC = () => {
         const other = event.other.rigidBodyObject;
         if (other && (other.name === 'rotating-arm' || other.name === 'windmill-blade')) {
           const playerPos = rigidBodyRef.current!.translation();
-          const otherPos = other.position;
-          const dir = new THREE.Vector3(playerPos.x - otherPos.x, 0.2, playerPos.z - otherPos.z).normalize();
+          const otherWorldPos = new THREE.Vector3();
+          other.getWorldPosition(otherWorldPos);
+
+          // Radial vector pointing outwards from the obstacle center
+          const radial = new THREE.Vector3(playerPos.x - otherWorldPos.x, 0, playerPos.z - otherWorldPos.z).normalize();
           
-          knockbackVelRef.current.copy(dir).multiplyScalar(8.5);
-          knockbackTimerRef.current = 0.45;
+          // Tangential direction matching rotation direction
+          let speedVal = 1.8;
+          if (other.userData && typeof other.userData.speed === 'number') {
+            speedVal = other.userData.speed;
+          }
+          const sign = speedVal >= 0 ? 1 : -1;
+          const tangent = new THREE.Vector3(-radial.z * sign, 0.2, radial.x * sign);
+
+          // Combine 65% tangent sweep + 35% radial push outward for realistic direction
+          const dir = new THREE.Vector3()
+            .addScaledVector(tangent, 0.65)
+            .addScaledVector(radial, 0.35)
+            .normalize();
+          dir.y = 0.24; // slight upward lift to launch player in the air
+
+          // Stronger knockback force for rotating sweepers
+          const knockForce = other.name === 'rotating-arm' ? 12.8 : 8.5;
+          
+          knockbackVelRef.current.copy(dir).multiplyScalar(knockForce);
+          knockbackTimerRef.current = 0.5;
           audioManager.playCollision(); // Play bonk sound effect!
           useGameStore.getState().triggerSplash([playerPos.x, playerPos.y, playerPos.z], '#ff007f'); // Pink splash!
         }

@@ -13,6 +13,8 @@ class AudioManager {
   private rainSource: AudioBufferSourceNode | null = null;
   private windGainNode: GainNode | null = null;
   private rainGainNode: GainNode | null = null;
+  private slideWindGainNode: GainNode | null = null;
+  private slideWindSource: AudioBufferSourceNode | null = null;
 
   // Music sequencer states
   private sequencerIntervalId: number | null = null;
@@ -146,6 +148,47 @@ class AudioManager {
     const time = this.ctx.currentTime;
     this.windGainNode.gain.linearRampToValueAtTime(windVol * 0.18, time + 0.35);
     this.rainGainNode.gain.linearRampToValueAtTime(rainVol * 0.22, time + 0.35);
+  }
+
+  public setSlideWindWhoosh(volume: number) {
+    this.init();
+    if (!this.ctx || !this.sfxGain) return;
+    
+    // Lazy initialize a dedicated slide wind source if not exists
+    if (!this.slideWindGainNode) {
+      this.slideWindGainNode = this.ctx.createGain();
+      this.slideWindGainNode.gain.value = 0;
+      this.slideWindGainNode.connect(this.sfxGain);
+
+      try {
+        const noiseBuffer = this.createNoiseBuffer(2.0);
+        this.slideWindSource = this.ctx.createBufferSource();
+        this.slideWindSource.buffer = noiseBuffer;
+        this.slideWindSource.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 450;
+        filter.Q.value = 1.2;
+
+        this.slideWindSource.connect(filter);
+        filter.connect(this.slideWindGainNode);
+        this.slideWindSource.start(0);
+
+        // Modulate filter frequency based on volume (volume scales with velocity)
+        setInterval(() => {
+          if (!this.ctx || !this.slideWindGainNode) return;
+          const currentVol = this.slideWindGainNode.gain.value;
+          const centerFreq = 320 + currentVol * 1400; // wind pitch increases with speed!
+          filter.frequency.setValueAtTime(centerFreq, this.ctx.currentTime);
+        }, 80);
+      } catch (err) {
+        console.warn("Failed to create slide wind noise:", err);
+      }
+    }
+
+    const targetGain = Math.min(0.28, volume * 0.22);
+    this.slideWindGainNode.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 0.1);
   }
 
   private async loadDefeatSound() {
