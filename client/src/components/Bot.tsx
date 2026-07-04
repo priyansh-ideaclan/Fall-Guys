@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RigidBody, CapsuleCollider, useRapier, RapierRigidBody } from '@react-three/rapier';
-import { Text } from '@react-three/drei';
+import { Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store/useGameStore';
 import { getRacerProgressValue } from '../utils/progress';
@@ -19,26 +19,27 @@ export interface BotProps {
 const LEVEL_1_NODES: Array<[number, number, number]> = [
   [0, 0, 0],
   [0, 0, 5],
-  [0, 0, 10],      // Hurdle 1
-  [-3, 0, 15],     // Left curve transition
-  [-6, 0, 20],     // Hurdle 2
-  [-6, 0, 26],     // Sweeper 1
-  [-6, 0, 32],     // Sweeper 2
-  [-2, 0, 39],     // Right curve transition
-  [4, 0, 44],      // Rope bridge takeoff deck
-  [4, 0, 52],      // Rope bridge midpoint
-  [4, 0, 60],      // Rope bridge landing deck
-  [-2.5, 0, 66],   // Ice/Mud entry transition
-  [-6, 0, 72],     // Ice/Mud end
-  [-6, 0, 80],     // Wind/Fan 1
-  [-6, 0, 88],     // Wind/Fan 2
-  [-2, 0, 93.5],   // Transition split entrance deck
-  [-2, 0, 101],    // Route choice (dynamically adjusted)
-  [-2, 0, 108.5],  // Transition merge exit deck
-  [-2, 0, 117],    // Hammer Arena center
-  [0, 0, 122],     // Near shortcut launch pad
-  [0, -1.0, 134],  // Final sprint mid (on downhill momentum ramp)
-  [0, -1.8, 145.5] // Finish arch (on finish deck)
+  [0, 0, 10],      // Walkway hurdle
+  [0, 0, 15],
+  [0, 0, 20],      // Checkpoint 1
+  [-1.0, 0, 24.5],  // Zig-zag platform 1 (Tilting deck)
+  [1.0, 0.1, 28.2], // Platform A (Fixed)
+  [-0.8, 0.35, 31.8], // Platform B (Moving X)
+  [0.8, 0.6, 35.4], // Platform C (Fixed)
+  [-0.8, 0.85, 39.0], // Platform D (Moving Z)
+  [0, 1.0, 42.6],    // Checkpoint 2
+  [0, 1.05, 44.5],   // Power Jump Pad!
+  [0, 7.5, 60.0],    // Landing deck after launch
+  [-3.0, 9.5, 68.0], // Vertical storey 2 (ice)
+  [3.0, 11.5, 74.0], // Vertical storey 3
+  [0, 13.5, 80],   // Checkpoint 3 (storey 4)
+  [0, 9.0, 88],    // Ice slide
+  [0, 4.5, 98],    // Slide landing mud
+  [0, 4.5, 104],   // Middle sweepers
+  [0, 4.5, 110],   // Checkpoint 4
+  [0, 4.5, 115],   // Speed boost lane
+  [0, 1.5, 130],   // Slanted final ramp
+  [0, -1.8, 145.5] // Finish Archway
 ];
 
 const LEVEL_2_NODES: Array<[number, number, number]> = [
@@ -109,6 +110,12 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   // Knockback states
   const knockbackTimerRef = useRef(0);
   const knockbackVelRef = useRef(new THREE.Vector3());
+
+  // Bot Nitro Boost states
+  const isNitroActive = useRef(false);
+  const nitroCooldown = useRef(0);
+  const nitroDuration = useRef(0);
+  const wasNitroActiveRef = useRef(false);
   
   // Base running speeds
   const botSpeed = useRef(difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.2 : 4.9);
@@ -123,6 +130,11 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       stuckTimeRef.current = 0;
       knockbackTimerRef.current = 0;
       lastPosRef.current.set(spawnPos[0], spawnPos[1], spawnPos[2]);
+      
+      isNitroActive.current = false;
+      nitroCooldown.current = 0;
+      nitroDuration.current = 0;
+      wasNitroActiveRef.current = false;
       
       const widthSpread = difficulty === 'EASY' ? 1.4 : difficulty === 'MEDIUM' ? 0.7 : 0.2;
       targetOffset.current.set(
@@ -140,7 +152,25 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   }, [phase, spawnPos, difficulty]);
 
   useFrame((state, delta) => {
+    // Tick local bot nitro timers
+    if (nitroCooldown.current > 0) {
+      nitroCooldown.current -= delta;
+      if (nitroCooldown.current < 0) nitroCooldown.current = 0;
+    }
+    if (isNitroActive.current) {
+      nitroDuration.current -= delta;
+      if (nitroDuration.current <= 0) {
+        isNitroActive.current = false;
+        nitroDuration.current = 0;
+      }
+    }
+
     if (phase !== 'PLAYING' || isQualified || isEliminated) {
+      if (phase === 'ROUND_INTRO' && rigidBodyRef.current) {
+        const rb = rigidBodyRef.current;
+        rb.setLinvel({ x: 0, y: Math.min(rb.linvel().y, 0), z: 0 }, true);
+        rb.setAngvel(new THREE.Vector3(0, 0, 0), true);
+      }
       if (visualGroupRef.current && isQualified) {
         const time = state.clock.getElapsedTime();
         visualGroupRef.current.position.y = -0.12 + Math.abs(Math.sin(time * 12)) * 0.25;
@@ -154,6 +184,55 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     if (!rb) return;
 
     const pos = rb.translation();
+
+    // AI Strategic Nitro trigger logic
+    if (nitroCooldown.current === 0 && !isNitroActive.current && phase === 'PLAYING') {
+      const botHash = id.charCodeAt(id.length - 1) % 3;
+      const personality = botHash === 0 ? 'AGGRESSIVE' : botHash === 1 ? 'BALANCED' : 'CAUTIOUS';
+
+      const isNearHammers = (pos.z > 3 && pos.z < 7) || (pos.z > 88 && pos.z < 96);
+      const isNearSweepers = (pos.z > 123 && pos.z < 132) || (pos.z > 85 && pos.z < 90);
+      const isComplexPlatforming = (pos.z > 23 && pos.z < 44) || (pos.z > 58 && pos.z < 81);
+      const isNarrowBeam = (pos.z > 110 && pos.z < 115 && Math.abs(pos.x) < 1.0);
+      const isStraightSection = (pos.z > 2 && pos.z < 18) || (pos.z > 102 && pos.z < 122);
+      
+      const avoidNitro = isNearHammers || isNearSweepers || isComplexPlatforming || isNarrowBeam;
+      
+      if (!avoidNitro) {
+        let triggerChance = 0;
+        if (personality === 'AGGRESSIVE') {
+          triggerChance = isStraightSection ? 0.005 : 0.002;
+        } else if (personality === 'BALANCED') {
+          triggerChance = isStraightSection ? 0.0025 : 0.0006;
+        } else {
+          // CAUTIOUS
+          triggerChance = isStraightSection ? 0.0012 : 0;
+        }
+        
+        if (Math.random() < triggerChance) {
+          isNitroActive.current = true;
+          nitroDuration.current = 1.0;
+          nitroCooldown.current = 5.0;
+        }
+      }
+    }
+
+    // Trigger forward boost impulse on activation for bot
+    const justActivatedNitro = isNitroActive.current && !wasNitroActiveRef.current;
+    wasNitroActiveRef.current = isNitroActive.current;
+
+    if (justActivatedNitro && visualGroupRef.current) {
+      const lookDir = new THREE.Vector3(0, 0, -1).applyQuaternion(visualGroupRef.current.quaternion);
+      lookDir.y = 0;
+      lookDir.normalize();
+      
+      const currentVel = rb.linvel();
+      rb.setLinvel({
+        x: currentVel.x + lookDir.x * 5.2, // Strong forward dash push
+        y: currentVel.y,
+        z: currentVel.z + lookDir.z * 5.2
+      }, true);
+    }
 
     // Decrement knockback timer and apply knockback velocity if active
     if (knockbackTimerRef.current > 0) {
@@ -183,21 +262,22 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       finished: isQualified,
     });
 
-    // Update name label opacity based on camera distance
+    // Update name label scale and opacity based on camera distance to avoid clutter
     if (nameLabelRef.current) {
       const camPos = state.camera.position;
       const dist = Math.sqrt(
         (camPos.x - pos.x) ** 2 + (camPos.y - pos.y) ** 2 + (camPos.z - pos.z) ** 2
       );
-      nameLabelRef.current.fillOpacity = dist > 35 ? Math.max(0, 1 - (dist - 35) / 15) : 1;
+      const targetScale = dist > 25 ? 0 : Math.max(0.35, 1.0 - (dist - 6) / 20);
+      nameLabelRef.current.scale.set(targetScale, targetScale, targetScale);
+      nameLabelRef.current.fillOpacity = dist > 25 ? 0 : Math.max(0.35, 1.0 - (dist - 6) / 20);
     }
 
-    // Checkpoint updates based on positions
     if (currentLevelId === 'race_1') {
-      if (pos.z > 32 && botLastCheckpoint.current[2] < 32) botLastCheckpoint.current = [-6, 1.2, 35];
-      if (pos.z > 58 && botLastCheckpoint.current[2] < 58) botLastCheckpoint.current = [4, 1.2, 60];
-      if (pos.z > 86 && botLastCheckpoint.current[2] < 86) botLastCheckpoint.current = [-6, 1.2, 88];
-      if (pos.z > 118 && botLastCheckpoint.current[2] < 118) botLastCheckpoint.current = [0, 1.2, 120];
+      if (pos.z > 20 && botLastCheckpoint.current[2] < 20) botLastCheckpoint.current = [0, 1.2, 20];
+      if (pos.z > 43.5 && botLastCheckpoint.current[2] < 43.5) botLastCheckpoint.current = [0, 2.2, 43.5];
+      if (pos.z > 80 && botLastCheckpoint.current[2] < 80) botLastCheckpoint.current = [0, 14.7, 80];
+      if (pos.z > 110 && botLastCheckpoint.current[2] < 110) botLastCheckpoint.current = [0, 5.7, 110];
     } else if (currentLevelId === 'race_2') {
       if (pos.z > 43 && botLastCheckpoint.current[2] < 43) botLastCheckpoint.current = [0, 1.2, 45.5];
       if (pos.z > 78 && botLastCheckpoint.current[2] < 78) botLastCheckpoint.current = [0, 5.2, 80];
@@ -234,6 +314,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     // 2. Teleport check or instant elimination if fell below boundaries
     const killBoundaryY = (currentLevelId === 'final_1' || currentLevelId === 'logic_1' || currentLevelId === 'survival_2') ? 0.0 : -8.0;
     if (pos.y < killBoundaryY) {
+      useGameStore.getState().triggerSplash([pos.x, -8.2, pos.z], '#ff007f');
       if (currentLevelType === 'SURVIVAL' || currentLevelType === 'LOGIC' || currentLevelId === 'final_1') {
         // Eliminated!
         setIsEliminated(true);
@@ -243,6 +324,13 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         rb.setLinvel(new THREE.Vector3(0, 0, 0), true);
         rb.setAngvel(new THREE.Vector3(0, 0, 0), true);
         stuckTimeRef.current = 0;
+
+        // Trigger recovery nitro
+        if (nitroCooldown.current === 0 && !isNitroActive.current) {
+          isNitroActive.current = true;
+          nitroDuration.current = 1.0;
+          nitroCooldown.current = 5.0;
+        }
       }
       return;
     }
@@ -274,6 +362,11 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     let activeSpeed = botSpeed.current;
     let accelerationRatio = isGroundedRef.current ? 0.15 : 0.06;
     let jumpImpulse = 6.2;
+
+    if (isNitroActive.current) {
+      activeSpeed *= 1.48; // 48% speed boost
+      accelerationRatio = Math.min(1.0, accelerationRatio * 1.8);
+    }
 
     if (currentSurface === 'ice') {
       accelerationRatio = 0.035;
@@ -329,7 +422,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         const targetPos = new THREE.Vector3(...targetNode).add(targetOffset.current);
         
         // Dynamically adjust Route Choice on node 16 (which is index 16)
-        if (currentLevelId === 'race_1' && currentNodeIndex.current === 16) {
+        if (currentLevelId === 'race_1' && currentNodeIndex.current === 999) {
           if (difficulty === 'HARD') {
             targetPos.x = -6.0; // Narrow beam shortcut
           } else if (difficulty === 'EASY') {
@@ -583,16 +676,20 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     // E. Level-Specific Jump Triggers (e.g. Launch pads)
     if (currentLevelId === 'race_1') {
-      // Hurdle 1 at [0, 0.25, 10]
-      if (pos.z > 8.2 && pos.z < 10.8 && jumpCooldown.current <= 0) {
+      // Hurdle at [0, 0.25, 8.5]
+      if (pos.z > 6.8 && pos.z < 9.0 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
-      // Hurdle 2 at [-6, 0.25, 20]
-      if (pos.z > 18.2 && pos.z < 20.8 && jumpCooldown.current <= 0) {
+      // Vertical climb Storey 1 -> Storey 2
+      if (pos.z > 63.5 && pos.z < 66.0 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
-      // Bounce pad shortcut at [2.5, 0.05, 120]
-      if (pos.z > 118.2 && pos.z < 120.8 && pos.x > 1.0 && jumpCooldown.current <= 0) {
+      // Vertical climb Storey 2 -> Storey 3
+      if (pos.z > 71.5 && pos.z < 74.0 && jumpCooldown.current <= 0) {
+        shouldJump = true;
+      }
+      // Vertical climb Storey 3 -> Storey 4
+      if (pos.z > 77.5 && pos.z < 80.0 && jumpCooldown.current <= 0) {
         shouldJump = true;
       }
     } else if (currentLevelId === 'race_2') {
@@ -710,6 +807,20 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           <meshStandardMaterial color={color} roughness={0.3} metalness={0.1} />
         </mesh>
 
+        {isNitroActive.current && (
+          <group>
+            {/* Glowing aura halo */}
+            <mesh position={[0, 0.1, 0]}>
+              <sphereGeometry args={[0.55, 12, 12]} />
+              <meshBasicMaterial color="#ff007f" transparent opacity={0.2} wireframe />
+            </mesh>
+            <mesh position={[0, 0.1, 0]}>
+              <sphereGeometry args={[0.58, 10, 10]} />
+              <meshBasicMaterial color="#ffffff" transparent opacity={0.06} />
+            </mesh>
+          </group>
+        )}
+
         <group position={[0, 0.28, 0.3]} scale={[1, 0.75, 1]}>
           <mesh>
             <sphereGeometry args={[0.22, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
@@ -758,10 +869,19 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           </group>
         )}
 
-        {/* Billboard name label above bot head */}
+      </group>
+
+      {isNitroActive.current && (
+        <mesh position={[0, -0.4, -0.3]}>
+          <boxGeometry args={[0.4, 0.05, 0.6]} />
+          <meshBasicMaterial color="#ff007f" transparent opacity={0.6} /> {/* Pink speed trail */}
+        </mesh>
+      )}
+
+      {/* Billboard name label above bot head */}
+      <Billboard position={[0, 0.9, 0]}>
         <Text
           ref={nameLabelRef}
-          position={[0, 1.45, 0]}
           fontSize={0.20}
           color={color}
           anchorX="center"
@@ -773,7 +893,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         >
           {name}
         </Text>
-      </group>
+      </Billboard>
     </RigidBody>
   );
 };

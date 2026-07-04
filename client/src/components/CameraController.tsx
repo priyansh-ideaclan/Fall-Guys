@@ -78,6 +78,8 @@ export const CameraController: React.FC = () => {
   // ── Persistent smoothed values for the follow-cam ─────────────────────────
   const smoothCamPos    = useRef(new THREE.Vector3(0, 6, -10));
   const smoothLookAt    = useRef(new THREE.Vector3(0, 1, 0));
+  const nitroEffectVal  = useRef(0);
+  const isNitroActive   = useGameStore((state) => state.isNitroActive);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Key bindings to skip the cinematic flyover
@@ -362,28 +364,18 @@ export const CameraController: React.FC = () => {
     // 4. GAMEPLAY FOLLOW: Standard stable third-person follow
     // ───────────────────────────────────────────────────────────────────────
 
-    // Auto-rotate yaw to face direction player is moving when mouse not locked
-    if (!isLocked.current) {
-      const playerRB = state.scene.getObjectByName('player');
-      if (playerRB) {
-        const visualRot = playerMesh.rotation.y;
-        const movDir = new THREE.Vector3(
-          Math.sin(visualRot),
-          0,
-          Math.cos(visualRot)
-        );
+    // Camera rotation is decoupled from character facing direction, preventing auto-spinning on S.
 
-        if (movDir.lengthSq() > 0.01) {
-          const desiredYaw = Math.atan2(movDir.x, movDir.z) + Math.PI;
-          let diff = desiredYaw - yaw.current;
-          while (diff > Math.PI)  diff -= 2 * Math.PI;
-          while (diff < -Math.PI) diff += 2 * Math.PI;
-          yaw.current += diff * YAW_AUTO_LERP;
-        }
-      }
+    const targetEffect = (phase === 'PLAYING' && isNitroActive) ? 1.0 : 0.0;
+    nitroEffectVal.current = THREE.MathUtils.lerp(nitroEffectVal.current, targetEffect, delta * 8);
+
+    // Apply dynamic FOV zoom
+    if ('fov' in camera) {
+      (camera as THREE.PerspectiveCamera).fov = 60 + nitroEffectVal.current * 14; // FOV goes from 60 to 74
+      (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
     }
 
-    const targetCamPos  = computeFollowCamPos(playerPos, yaw.current, pitch.current);
+    const targetCamPos  = computeFollowCamPos(playerPos, yaw.current, pitch.current, nitroEffectVal.current * 1.5);
     const targetLookAt  = playerPos.clone().add(new THREE.Vector3(0, 0.5, 0));
 
     // Floor clip prevention
@@ -396,6 +388,14 @@ export const CameraController: React.FC = () => {
 
     camera.position.copy(smoothCamPos.current);
     camera.lookAt(smoothLookAt.current);
+
+    // Dynamic speed shake vibration during boost
+    if (nitroEffectVal.current > 0.05) {
+      const shake = nitroEffectVal.current * 0.035;
+      camera.position.x += (Math.random() - 0.5) * shake;
+      camera.position.y += (Math.random() - 0.5) * shake;
+      camera.position.z += (Math.random() - 0.5) * shake;
+    }
   });
 
   return null;
@@ -407,10 +407,12 @@ export const CameraController: React.FC = () => {
 function computeFollowCamPos(
   playerPos: THREE.Vector3,
   yaw: number,
-  pitch: number
+  pitch: number,
+  extraDist: number = 0
 ): THREE.Vector3 {
-  const x = FOLLOW_DISTANCE * Math.cos(pitch) * Math.sin(yaw);
-  const y = FOLLOW_HEIGHT   + FOLLOW_DISTANCE * Math.sin(-pitch);
-  const z = FOLLOW_DISTANCE * Math.cos(pitch) * Math.cos(yaw);
+  const dist = FOLLOW_DISTANCE + extraDist;
+  const x = dist * Math.cos(pitch) * Math.sin(yaw);
+  const y = FOLLOW_HEIGHT   + dist * Math.sin(-pitch);
+  const z = dist * Math.cos(pitch) * Math.cos(yaw);
   return playerPos.clone().add(new THREE.Vector3(x, y, z));
 }

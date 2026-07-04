@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { RigidBody, CapsuleCollider, useRapier, RapierRigidBody } from '@react-three/rapier';
-import { Text } from '@react-three/drei';
+import { Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameControls } from '../hooks/useGameControls';
 import { useGameStore } from '../store/useGameStore';
@@ -11,6 +11,14 @@ import { getRacerProgressValue } from '../utils/progress';
 export const Player: React.FC = () => {
   const controls = useGameControls();
   const { lastCheckpoint, phase, triggerWin, triggerLoss } = useGameStore();
+  const isNitroActive = useGameStore((state) => state.isNitroActive);
+  const nitroCooldown = useGameStore((state) => state.nitroCooldown);
+  const triggerNitro = useGameStore((state) => state.triggerNitro);
+  const tickNitro = useGameStore((state) => state.tickNitro);
+
+  const wasNitroActiveRef = useRef(false);
+  const nitroTrailParticles = useRef<Array<{ pos: THREE.Vector3; age: number }>>([]);
+  const trailPointsRef = useRef<THREE.Points>(null);
   const { camera } = useThree();
   const { rapier, world } = useRapier();
 
@@ -113,7 +121,16 @@ export const Player: React.FC = () => {
   }, [playerQualified]);
 
   useFrame((state, delta) => {
+    // Tick nitro cooldown
+    tickNitro(delta);
+
     if (phase !== 'PLAYING') return;
+
+    // Detect if nitro input is pressed
+    if (controls.nitro && !isNitroActive && nitroCooldown <= 0 && !playerQualified) {
+      triggerNitro();
+      audioManager.playNitro();
+    }
 
     const activeControls = {
       forward: playerQualified ? false : controls.forward,
@@ -129,6 +146,23 @@ export const Player: React.FC = () => {
     if (!rigidBody) return;
 
     const pos = rigidBody.translation();
+
+    // Trigger forward boost impulse on activation
+    const justActivatedNitro = isNitroActive && !wasNitroActiveRef.current;
+    wasNitroActiveRef.current = isNitroActive;
+
+    if (justActivatedNitro && visualGroupRef.current) {
+      const lookDir = new THREE.Vector3(0, 0, -1).applyQuaternion(visualGroupRef.current.quaternion);
+      lookDir.y = 0;
+      lookDir.normalize();
+      
+      const currentVel = rigidBody.linvel();
+      rigidBody.setLinvel({
+        x: currentVel.x + lookDir.x * 5.2, // Strong dash impulse forward
+        y: currentVel.y,
+        z: currentVel.z + lookDir.z * 5.2
+      }, true);
+    }
 
     // Decrement knockback timer and apply knockback velocity if active
     if (knockbackTimerRef.current > 0) {
@@ -166,6 +200,7 @@ export const Player: React.FC = () => {
 
     // 1. Respawn if fell into void
     if (pos.y < -8) {
+      useGameStore.getState().triggerSplash([pos.x, -8.2, pos.z], '#ff007f');
       const respawnPoint = lastCheckpoint || [0, 4, 0];
       rigidBody.setTranslation(new THREE.Vector3(...respawnPoint), true);
       rigidBody.setLinvel(new THREE.Vector3(0, 0, 0), true);
@@ -230,6 +265,11 @@ export const Player: React.FC = () => {
     let moveSpeed = 4.8;
     let accelerationRatio = isGroundedRef.current ? 0.22 : 0.08;
     let jumpImpulse = 6.2;
+
+    if (isNitroActive) {
+      moveSpeed *= 1.48; // 48% speed boost as requested by user
+      accelerationRatio = Math.min(1.0, accelerationRatio * 1.8);
+    }
 
     if (currentSurface === 'ice') {
       // Ice surface: extremely slippery slide drift
@@ -301,7 +341,6 @@ export const Player: React.FC = () => {
 
     const camRight = new THREE.Vector3();
     camRight.crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
-
     const moveDir = new THREE.Vector3(0, 0, 0);
     if (activeControls.forward) moveDir.add(camDir);
     if (activeControls.backward) moveDir.sub(camDir);
@@ -360,6 +399,34 @@ export const Player: React.FC = () => {
     }
 
     rigidBody.setLinvel({ x: nextVelX, y: nextVelY, z: nextVelZ }, true);
+
+    // Update Nitro particle trail
+    if (isNitroActive && Math.random() < 0.6) {
+      nitroTrailParticles.current.push({
+        pos: new THREE.Vector3(pos.x + (Math.random() - 0.5) * 0.35, pos.y - 0.45, pos.z + (Math.random() - 0.5) * 0.35),
+        age: 0
+      });
+    }
+
+    nitroTrailParticles.current.forEach((p) => {
+      p.age += delta;
+      p.pos.y += delta * 0.4;
+    });
+    nitroTrailParticles.current = nitroTrailParticles.current.filter((p) => p.age < 0.4);
+
+    if (trailPointsRef.current) {
+      const geom = trailPointsRef.current.geometry;
+      const positions = geom.attributes.position.array as Float32Array;
+      positions.fill(0);
+      nitroTrailParticles.current.forEach((p, idx) => {
+        if (idx < 20) {
+          positions[idx * 3] = p.pos.x - pos.x;
+          positions[idx * 3 + 1] = p.pos.y - pos.y;
+          positions[idx * 3 + 2] = p.pos.z - pos.z;
+        }
+      });
+      geom.attributes.position.needsUpdate = true;
+    }
 
     // Rotate player visuals
     if (moveDir.lengthSq() > 0.01 && visualGroupRef.current) {
@@ -439,6 +506,16 @@ export const Player: React.FC = () => {
         lArm.rotation.z = -Math.sin(clockTime * idleFreq) * 0.05 - 0.15;
         rArm.rotation.z = Math.sin(clockTime * idleFreq) * 0.05 + 0.15;
       }
+    }
+    // Update name label scale and opacity based on camera distance to avoid clutter
+    if (nameLabelRef.current) {
+      const camPos = state.camera.position;
+      const dist = Math.sqrt(
+        (camPos.x - pos.x) ** 2 + (camPos.y - pos.y) ** 2 + (camPos.z - pos.z) ** 2
+      );
+      const targetScale = dist > 25 ? 0 : Math.max(0.35, 1.0 - (dist - 6) / 20);
+      nameLabelRef.current.scale.set(targetScale, targetScale, targetScale);
+      nameLabelRef.current.fillOpacity = dist > 25 ? 0 : Math.max(0.35, 1.0 - (dist - 6) / 20);
     }
   });
 
@@ -521,10 +598,40 @@ export const Player: React.FC = () => {
           </group>
         )}
 
-        {/* Billboard name label above player head */}
+      </group>
+
+      {/* Visual boost lines/aura and shoe trail */}
+      {isNitroActive && (
+        <group>
+          {/* Glowing aura halo */}
+          <mesh position={[0, 0.1, 0]}>
+            <sphereGeometry args={[0.55, 16, 16]} />
+            <meshBasicMaterial color="#00e5ff" transparent opacity={0.2} wireframe />
+          </mesh>
+          <mesh position={[0, 0.1, 0]}>
+            <sphereGeometry args={[0.58, 12, 12]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.08} />
+          </mesh>
+        </group>
+      )}
+
+      {/* Sparks trail */}
+      <points ref={trailPointsRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={20}
+            array={new Float32Array(20 * 3)}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial size={0.18} color="#00e5ff" sizeAttenuation transparent opacity={0.8} />
+      </points>
+
+      {/* Billboard name label above player head */}
+      <Billboard position={[0, 0.9, 0]}>
         <Text
           ref={nameLabelRef}
-          position={[0, 1.45, 0]}
           fontSize={0.22}
           color="#00e5ff"
           anchorX="center"
@@ -536,7 +643,7 @@ export const Player: React.FC = () => {
         >
           {playerName || 'You'}
         </Text>
-      </group>
+      </Billboard>
     </RigidBody>
   );
 };

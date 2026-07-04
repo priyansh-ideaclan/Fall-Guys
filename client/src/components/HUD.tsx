@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { Timer, Trophy, RotateCcw, Home, HelpCircle, Volume2, VolumeX, Sparkles, Shield, Zap, Star, Brain, Target, Users, Crown, Music, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
+import { Timer, Trophy, RotateCcw, Home, HelpCircle, Volume2, VolumeX, Sparkles, Shield, Zap, Star, Brain, Target, Users, Crown, Music, SkipBack, SkipForward, Play, Pause, Eye } from 'lucide-react';
 import { RaceLeaderboard } from './RaceLeaderboard';
 import { audioManager } from '../utils/audioManager';
 import { musicManager } from '../utils/musicManager';
@@ -70,6 +70,9 @@ export const HUD: React.FC = () => {
     eliminatedBots,
     cinematicActive,
     setCinematicActive,
+    showDebugCheckpoints,
+    isNitroActive,
+    nitroCooldown,
   } = useGameStore();
   const {
     playlist,
@@ -101,6 +104,8 @@ export const HUD: React.FC = () => {
         musicManager.skipToNext();
       } else if (e.key === 'm' || e.key === 'M') {
         useMusicStore.getState().setEnableMusic(!useMusicStore.getState().enableMusic);
+      } else if (e.key === 'o' || e.key === 'O') {
+        useGameStore.getState().toggleDebugCheckpoints();
       }
     };
 
@@ -570,13 +575,61 @@ export const HUD: React.FC = () => {
       {phase === 'PLAYING' && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', pointerEvents: 'none' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', pointerEvents: 'auto' }}>
+            
+            {/* Nitro Dash Gauge */}
+            <div className="glass-panel" style={{
+              padding: '10px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              border: '1px solid var(--glass-border)',
+              width: '210px',
+              pointerEvents: 'auto'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 800 }}>
+                <span style={{ color: isNitroActive ? '#00e5ff' : nitroCooldown > 0 ? '#ffd60a' : '#39ff14' }}>
+                  {isNitroActive ? '⚡ NITRO ACTIVE' : nitroCooldown > 0 ? '⏳ COOLING DOWN' : '✅ NITRO READY'}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.6)' }}>Shift</span>
+              </div>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '4px',
+                overflow: 'hidden',
+                position: 'relative'
+              }}>
+                <div style={{
+                  height: '100%',
+                  width: isNitroActive 
+                    ? `${((nitroCooldown - 4.0) / 1.0) * 100}%`
+                    : nitroCooldown > 0 
+                      ? `${((5.0 - nitroCooldown) / 5.0) * 100}%`
+                      : '100%',
+                  background: isNitroActive 
+                    ? 'linear-gradient(90deg, #00d6ff, #00e5ff)' 
+                    : nitroCooldown > 0 
+                      ? 'linear-gradient(90deg, #ff9f0a, #ffd60a)' 
+                      : 'linear-gradient(90deg, #30d158, #39ff14)',
+                  boxShadow: isNitroActive 
+                    ? '0 0 10px #00e5ff' 
+                    : nitroCooldown > 0 
+                      ? 'none' 
+                      : '0 0 8px #39ff14',
+                  transition: isNitroActive ? 'none' : 'width 0.1s linear'
+                }} />
+              </div>
+            </div>
+
             {/* Movement Controls Panel */}
             <div className="glass-panel" style={{ padding: '12px 18px', fontSize: '0.82rem', color: 'rgba(255,255,255,0.7)', display: 'flex', gap: '14px', alignItems: 'center', border: '1px solid var(--glass-border)' }}>
               <HelpCircle size={15} color="var(--secondary)" />
               <div style={{ display: 'flex', gap: '10px' }}>
                 <span><strong>WASD</strong> Move</span>
                 <span><strong>Space</strong> Jump</span>
-                <span><strong>Shift</strong> Dive</span>
+                <span><strong>Shift</strong> Nitro</span>
+                <span><strong>C / Ctrl</strong> Dive</span>
                 <span><strong>E</strong> Grab</span>
                 <span><strong>Click</strong> Look</span>
               </div>
@@ -616,6 +669,24 @@ export const HUD: React.FC = () => {
             </div>
           </div>
           
+          <button 
+            className="ui-interactive btn-secondary" 
+            style={{ 
+              pointerEvents: 'all', 
+              padding: '10px 16px', 
+              fontSize: '0.9rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              fontWeight: 800,
+              borderColor: showDebugCheckpoints ? 'var(--secondary)' : 'var(--glass-border)',
+              background: showDebugCheckpoints ? 'rgba(0, 229, 255, 0.15)' : 'var(--glass-bg)'
+            }} 
+            onClick={() => useGameStore.getState().toggleDebugCheckpoints()}
+          >
+            <Eye size={14} /> {showDebugCheckpoints ? 'Hide Dev Landmarks' : 'Show Dev Landmarks (O)'}
+          </button>
+
           <button className="ui-interactive btn-secondary" style={{ pointerEvents: 'all', padding: '10px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800 }} onClick={resetTournament}>
             <Home size={14} /> Leave Match
           </button>

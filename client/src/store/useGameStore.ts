@@ -73,6 +73,14 @@ interface GameState {
   sfxVolume: number;
   musicMuted: boolean;
   sfxMuted: boolean;
+  showDebugCheckpoints: boolean;
+  splashes: Array<{ id: string; position: [number, number, number]; color: string }>;
+  isNitroActive: boolean;
+  nitroCooldown: number;
+  setNitroActive: (active: boolean) => void;
+  setNitroCooldown: (cooldown: number) => void;
+  triggerNitro: () => void;
+  tickNitro: (dt: number) => void;
 
   // Actions
   setPhase: (phase: GamePhase) => void;
@@ -103,6 +111,8 @@ interface GameState {
   startGame: () => void;
   selectLevel: (index: number) => void;
   unlockNextLevel: () => void;
+  toggleDebugCheckpoints: () => void;
+  triggerSplash: (position: [number, number, number], color?: string) => void;
 }
 
 const THEMES: VisualTheme[] = ['SKY_BLUE', 'SUNSET_ORANGE', 'PURPLE_NEON', 'CANDY_LAND', 'SPACE'];
@@ -110,20 +120,20 @@ const THEMES: VisualTheme[] = ['SKY_BLUE', 'SUNSET_ORANGE', 'PURPLE_NEON', 'CAND
 // Starting spawn points for each level type
 const SPAWN_POINTS: Record<string, [number, number, number]> = {
   // Race Levels
-  'race_1': [0, 4, 0],
-  'race_2': [0, 4, 0],
-  'race_3': [0, 4, 0],
+  'race_1': [0, 0.4, 0],
+  'race_2': [0, 0.4, 0],
+  'race_3': [0, 0.4, 0],
   // Survival Levels
-  'survival_1': [0, 4, 0],
-  'survival_2': [0, 4, 0],
+  'survival_1': [0, 0.4, 0],
+  'survival_2': [0, 0.4, 0],
   // Logic Levels
-  'logic_1': [0, 2.5, -5.8],
-  'logic_2': [0, 4, 0],
+  'logic_1': [0, 2.1, -5.8],
+  'logic_2': [0, 0.4, 0],
   // Hunt Levels
-  'hunt_1': [0, 4, 0],
+  'hunt_1': [0, 0.4, 0],
   // Final Levels
-  'final_1': [0, 10, 0],
-  'final_2': [0, 4, 0],
+  'final_1': [0, 9.8, 0],
+  'final_2': [0, 0.4, 0],
 };
 
 const getStoredNumber = (key: string, fallback: number): number => {
@@ -239,6 +249,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   sfxVolume: getStoredNumber('chaorunners_vol_sfx', 0.7),
   musicMuted: getStoredBoolean('chaorunners_mute_music', false),
   sfxMuted: getStoredBoolean('chaorunners_mute_sfx', false),
+  showDebugCheckpoints: false,
+  splashes: [],
+  isNitroActive: false,
+  nitroCooldown: 0,
 
   setPhase: (phase) => set({ phase }),
   setCinematicActive: (active) => set({ cinematicActive: active }),
@@ -247,6 +261,35 @@ export const useGameStore = create<GameState>((set, get) => ({
     const trimmed = name.trim();
     localStorage.setItem('chaorunners_player_name', trimmed);
     set({ playerName: trimmed });
+  },
+  toggleDebugCheckpoints: () => set((state) => ({ showDebugCheckpoints: !state.showDebugCheckpoints })),
+  triggerSplash: (position, color = '#39ff14') => {
+    const id = Math.random().toString();
+    set((state) => ({ splashes: [...state.splashes, { id, position, color }] }));
+    setTimeout(() => {
+      set((state) => ({ splashes: state.splashes.filter((s) => s.id !== id) }));
+    }, 1000);
+  },
+  setNitroActive: (active) => set({ isNitroActive: active }),
+  setNitroCooldown: (cooldown) => set({ nitroCooldown: cooldown }),
+  triggerNitro: () => {
+    const state = useGameStore.getState();
+    if (state.nitroCooldown > 0 || state.isNitroActive || state.phase !== 'PLAYING') return;
+    set({ isNitroActive: true, nitroCooldown: 5.0 });
+  },
+  tickNitro: (dt) => {
+    set((state) => {
+      let nextCooldown = state.nitroCooldown - dt;
+      if (nextCooldown < 0) nextCooldown = 0;
+      let nextActive = state.isNitroActive;
+      if (state.isNitroActive && nextCooldown <= 4.0) {
+        nextActive = false;
+      }
+      return {
+        nitroCooldown: nextCooldown,
+        isNitroActive: nextActive
+      };
+    });
   },
 
   updateCustomization: (customization) => set((state) => ({

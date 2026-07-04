@@ -9,18 +9,25 @@ export const BotManager: React.FC = () => {
 
   const botsList = useMemo(() => {
     return activeBots.map((bot, i) => {
-      // Distribute bots in a grid behind the player
-      const row = Math.floor(i / 3); // 0, 1, 2
-      const col = i % 3;             // 0, 1, 2
-
       // Y height varies based on level spawn deck
-      const spawnHeight = currentLevelId === 'final_1' ? 9.8 : 4.0;
+      let spawnHeight = 0.4;
+      if (currentLevelId === 'final_1') {
+        spawnHeight = 9.8;
+      } else if (currentLevelId === 'logic_1') {
+        spawnHeight = 2.1;
+      }
 
-      const spawnPos: [number, number, number] = [
-        (col - 1) * 1.3 + (Math.random() - 0.5) * 0.15,
-        spawnHeight,
-        -1.8 - row * 1.5
-      ];
+      // Distribute bots in a grid behind and next to the player centered around X = 0
+      let spawnPos: [number, number, number] = [0, spawnHeight, 0];
+      if (i === 0) spawnPos = [-1.5, spawnHeight, 0];
+      else if (i === 1) spawnPos = [1.5, spawnHeight, 0];
+      else if (i === 2) spawnPos = [-1.8, spawnHeight, -1.5];
+      else if (i === 3) spawnPos = [-0.6, spawnHeight, -1.5];
+      else if (i === 4) spawnPos = [0.6, spawnHeight, -1.5];
+      else if (i === 5) spawnPos = [1.8, spawnHeight, -1.5];
+      else if (i === 6) spawnPos = [-1.2, spawnHeight, -3.0];
+      else if (i === 7) spawnPos = [0.0, spawnHeight, -3.0];
+      else if (i === 8) spawnPos = [1.2, spawnHeight, -3.0];
 
       return {
         ...bot,

@@ -450,6 +450,27 @@ class AudioManager {
     osc.start();
     osc.stop(this.ctx.currentTime + 0.11);
   }
+
+  public playNitro() {
+    this.resumeContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const osc = this.ctx.createOscillator();
+    const env = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1000, this.ctx.currentTime + 0.4);
+
+    env.gain.setValueAtTime(0.18, this.ctx.currentTime);
+    env.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.55);
+
+    osc.connect(env);
+    env.connect(this.sfxGain);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.56);
+  }
 }
 
 export const audioManager = new AudioManager();

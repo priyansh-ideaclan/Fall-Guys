@@ -8,6 +8,7 @@ export interface Controls {
   jump: boolean;
   dive: boolean;
   grab: boolean;
+  nitro: boolean;
 }
 
 export const useGameControls = () => {
@@ -19,6 +20,7 @@ export const useGameControls = () => {
     jump: false,
     dive: false,
     grab: false,
+    nitro: false,
   });
 
   useEffect(() => {
@@ -34,7 +36,8 @@ export const useGameControls = () => {
         if (key === 'a' || e.key === 'ArrowLeft') { next.left = true; changed = true; }
         if (key === 'd' || e.key === 'ArrowRight') { next.right = true; changed = true; }
         if (e.key === ' ') { next.jump = true; changed = true; }
-        if (e.key === 'Shift') { next.dive = true; changed = true; }
+        if (e.key === 'Shift') { next.nitro = true; changed = true; }
+        if (key === 'c' || e.key === 'Control') { next.dive = true; changed = true; }
         if (key === 'e') { next.grab = true; changed = true; }
 
         return changed ? next : state;
@@ -53,7 +56,8 @@ export const useGameControls = () => {
         if (key === 'a' || e.key === 'ArrowLeft') { next.left = false; changed = true; }
         if (key === 'd' || e.key === 'ArrowRight') { next.right = false; changed = true; }
         if (e.key === ' ') { next.jump = false; changed = true; }
-        if (e.key === 'Shift') { next.dive = false; changed = true; }
+        if (e.key === 'Shift') { next.nitro = false; changed = true; }
+        if (key === 'c' || e.key === 'Control') { next.dive = false; changed = true; }
         if (key === 'e') { next.grab = false; changed = true; }
 
         return changed ? next : state;
