@@ -122,7 +122,7 @@ export const HUD: React.FC = () => {
       } else if (e.key === 'F9') {
         useGameStore.getState().toggleDevShowDetails();
       } else if (e.key === 'F10') {
-        const isDevMode = (import.meta as any).env?.DEV || process.env.NODE_ENV === 'development';
+        const isDevMode = import.meta.env.DEV;
         if (isDevMode) {
           useGameStore.getState().toggleGodMode();
         }
@@ -810,7 +810,7 @@ export const HUD: React.FC = () => {
             <Eye size={14} /> {showDebugCheckpoints ? 'Hide Dev Landmarks' : 'Show Dev Landmarks (O)'}
           </button>
 
-          {((import.meta as any).env?.DEV || process.env.NODE_ENV === 'development') && (
+          {import.meta.env.DEV && (
             <button 
               className="ui-interactive btn-secondary" 
               tabIndex={-1}
