@@ -4,6 +4,26 @@ import * as THREE from 'three';
 import { useGameStore } from '../store/useGameStore';
 import { audioManager } from '../utils/audioManager';
 
+// Predefined spline points for Level 1 camera flyover path (flying backwards from finish to start)
+const LEVEL_1_CAM_POINTS = [
+  new THREE.Vector3(0, 11, 130),
+  new THREE.Vector3(6, 9, 102),
+  new THREE.Vector3(-4, 13, 76),
+  new THREE.Vector3(5, 12, 54),
+  new THREE.Vector3(0, 4.5, -5.5)
+];
+
+const LEVEL_1_LOOK_POINTS = [
+  new THREE.Vector3(0, 4, 115),
+  new THREE.Vector3(-2, 4.5, 95),
+  new THREE.Vector3(0, 8, 68),
+  new THREE.Vector3(0, 6, 45),
+  new THREE.Vector3(0, 0.8, 6.0)
+];
+
+const level1CamCurve = new THREE.CatmullRomCurve3(LEVEL_1_CAM_POINTS);
+const level1LookCurve = new THREE.CatmullRomCurve3(LEVEL_1_LOOK_POINTS);
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Distance from player the follow-cam sits */
@@ -78,6 +98,7 @@ export const CameraController: React.FC = () => {
   // ── Persistent smoothed values for the follow-cam ─────────────────────────
   const smoothCamPos    = useRef(new THREE.Vector3(0, 6, -10));
   const smoothLookAt    = useRef(new THREE.Vector3(0, 1, 0));
+  const smoothedTargetPos = useRef(new THREE.Vector3());
   const nitroEffectVal  = useRef(0);
   const slideEffectVal  = useRef(0);
   const isNitroActive   = useGameStore((state) => state.isNitroActive);
@@ -201,6 +222,13 @@ export const CameraController: React.FC = () => {
     const playerPos = new THREE.Vector3();
     targetMesh.getWorldPosition(playerPos);
 
+    // Initialize or smoothly lerp the smoothedTargetPos to filter out physics tick jitter
+    if (smoothedTargetPos.current.lengthSq() === 0) {
+      smoothedTargetPos.current.copy(playerPos);
+    } else {
+      smoothedTargetPos.current.lerp(playerPos, Math.min(1.0, 18.0 * delta));
+    }
+
     // ───────────────────────────────────────────────────────────────────────
     // 1. MENU PHASE: Smooth animated looping previews
     // ───────────────────────────────────────────────────────────────────────
@@ -264,31 +292,10 @@ export const CameraController: React.FC = () => {
       const flyLookAt = new THREE.Vector3();
 
       if (currentLevelId === 'race_1') {
-        // Fly backwards from finish line (Z = 145) to start line (Z = -5)
-        const zPos = 145.0 * (1 - t) - 5.0 * t;
-        const yPos = 8.5 * (1 - t) + 3.8 * t;
-        
-        let xPos = 0;
-        if (zPos > 120) {
-          xPos = 0;
-        } else if (zPos > 106) {
-          xPos = -3 * ((zPos - 106) / 14); // transition from -6 to 0
-        } else if (zPos > 72) {
-          xPos = -6; // Wind zone and balance beam
-        } else if (zPos > 60) {
-          xPos = -6 + (12 - (zPos - 60)) * 10/12; // transition
-        } else if (zPos > 44) {
-          xPos = 4; // Moving platforms
-        } else if (zPos > 32) {
-          xPos = -6 + ((zPos - 32) / 12) * 10; // transition from -6 to 4
-        } else if (zPos > 15) {
-          xPos = -6; // Hurdle 2 & sweepers
-        } else {
-          xPos = -6 * (zPos / 15); // transition from 0 to -6
-        }
-
-        flyCamPos.set(xPos, yPos + 3.5, zPos);
-        flyLookAt.set(xPos, yPos, zPos + 10.0 * (1 - t) - 4.0 * t);
+        // Evaluate the smooth Catmull-Rom curves using a cubic smoothstep easing factor
+        const easedT = t * t * (3 - 2 * t);
+        flyCamPos.copy(level1CamCurve.getPoint(easedT));
+        flyLookAt.copy(level1LookCurve.getPoint(easedT));
       } else if (currentLevelId === 'survival_1') {
         // Full circular orbit panning down
         const angle = t * Math.PI * 1.5;
@@ -328,8 +335,8 @@ export const CameraController: React.FC = () => {
       const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // smooth step
 
       // Starting/follow-cam target
-      const followTarget = computeFollowCamPos(playerPos, yaw.current, pitch.current);
-      const followLook = playerPos.clone().add(new THREE.Vector3(0, 0.5, 0));
+      const followTarget = computeFollowCamPos(smoothedTargetPos.current, yaw.current, pitch.current);
+      const followLook = smoothedTargetPos.current.clone().add(new THREE.Vector3(0, 0.5, 0));
 
       const blendedPos    = blendFromPos.current.clone().lerp(followTarget, ease);
       const blendedLookAt = blendFromLookAt.current.clone().lerp(followLook, ease);
@@ -370,8 +377,8 @@ export const CameraController: React.FC = () => {
 
     if (currentLevelId === 'survival_2') {
       // If player drops below top tier, pull camera closer and tilt it steeper to look down through upper shafts
-      if (playerPos.y < 5.5) {
-        const dropFactor = Math.max(0, Math.min(1.0, (5.5 - playerPos.y) / 6.5));
+      if (smoothedTargetPos.current.y < 5.5) {
+        const dropFactor = Math.max(0, Math.min(1.0, (5.5 - smoothedTargetPos.current.y) / 6.5));
         customFollowDistance = FOLLOW_DISTANCE - dropFactor * 1.6; // camera gets closer (down to 4.4m)
         pitchOffset = -dropFactor * 0.45; // pitch down steeper (by ~25 deg)
         heightOffset = dropFactor * 0.9; // raise look down vantage point
@@ -379,17 +386,17 @@ export const CameraController: React.FC = () => {
     }
 
     const targetCamPos  = computeFollowCamPos(
-      playerPos,
+      smoothedTargetPos.current,
       yaw.current,
       pitch.current + pitchOffset,
       (nitroEffectVal.current * 1.5) + (isPlayerSliding ? 2.5 : 0.0) + (customFollowDistance - FOLLOW_DISTANCE),
       FOLLOW_HEIGHT + heightOffset
     );
-    const targetLookAt  = playerPos.clone().add(new THREE.Vector3(0, 0.5, 0));
+    const targetLookAt  = smoothedTargetPos.current.clone().add(new THREE.Vector3(0, 0.5, 0));
 
     // Floor clip prevention
-    if (targetCamPos.y < playerPos.y + 0.4) {
-      targetCamPos.y = playerPos.y + 0.4;
+    if (targetCamPos.y < smoothedTargetPos.current.y + 0.4) {
+      targetCamPos.y = smoothedTargetPos.current.y + 0.4;
     }
 
     const tPos = Math.min(1.0, 7.0 * delta);

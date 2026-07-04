@@ -143,6 +143,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   const stuckTimeRef = useRef(0);
 
   const isGroundedRef = useRef(false);
+  const smoothedSpeedRef = useRef(0);
   const jumpCooldown = useRef(0);
   const jumpCountRef = useRef(0);
   const landingSquish = useRef(0);
@@ -159,7 +160,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   const wasNitroActiveRef = useRef(false);
   
   // Base running speeds
-  const botSpeed = useRef(difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.2 : 4.9);
+  const botSpeed = useRef(difficulty === 'EASY' ? 4.0 : difficulty === 'MEDIUM' ? 4.8 : 5.6);
   const botPath = useRef<[number, number, number][]>(LEVEL_1_MIDDLE_PATH);
   const windmillMistakeFlag = useRef<boolean | null>(null);
   
@@ -201,7 +202,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       personalityRef.current = personalities[botIdx % personalities.length];
 
       // Tune speeds based on difficulty and personality
-      let baseSpeed = difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.2 : 4.9;
+      let baseSpeed = difficulty === 'EASY' ? 4.0 : difficulty === 'MEDIUM' ? 4.8 : 5.6;
       if (personalityRef.current === 'AGGRESSIVE') baseSpeed *= 1.06;
       if (personalityRef.current === 'SAFE') baseSpeed *= 0.94;
       botSpeed.current = baseSpeed;
@@ -1109,7 +1110,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       let diff = targetRot - visualGroupRef.current.rotation.y;
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
-      visualGroupRef.current.rotation.y += diff * Math.min(1.0, 10.0 * delta);
+      visualGroupRef.current.rotation.y += diff * Math.min(1.0, 8.5 * delta);
     }
 
     // Track landing squish
@@ -1120,8 +1121,13 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     }
     landingSquish.current = THREE.MathUtils.lerp(landingSquish.current, 0, delta * 12.0);
 
-    // Leg/arm swing waddles
+    // 6. Procedural Animations states
+    const clockTime = state.clock.getElapsedTime();
     const speed = new THREE.Vector3(vel.x, 0, vel.z).length();
+
+    // Smooth speed updates to prevent animation blending pops
+    smoothedSpeedRef.current = THREE.MathUtils.lerp(smoothedSpeedRef.current, speed, delta * 10.0);
+
     const visual = visualGroupRef.current;
     const lLeg = leftLegRef.current;
     const rLeg = rightLegRef.current;
@@ -1131,30 +1137,40 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     if (visual && lLeg && rLeg && lArm && rArm) {
       const squishXZ = 1.0 + landingSquish.current * 0.4;
       const squishY = 1.0 - landingSquish.current * 0.75;
-      visual.scale.set(0.6 * squishXZ, 0.6 * squishY, 0.6 * squishXZ);
+      
+      let targetScaleX = 0.6 * squishXZ;
+      let targetScaleY = 0.6 * squishY;
+      let targetScaleZ = 0.6 * squishXZ;
+      let targetPosY = -0.12;
+
       visual.rotation.x = 0;
       visual.rotation.z = 0;
       lLeg.rotation.set(0, 0, 0);
       rLeg.rotation.set(0, 0, 0);
-      lArm.rotation.set(0, 0, 0.15);
-      rArm.rotation.set(0, 0, -0.15);
-      visual.position.y = -0.12;
+      lArm.rotation.set(0, 0, 0.1);
+      rArm.rotation.set(0, 0, -0.1);
 
-      if (Math.abs(windForceX) > 0.4) {
+      if (isQualified) {
+        // Celebrate victory dance!
+        targetPosY = -0.12 + Math.abs(Math.sin(clockTime * 12)) * 0.25;
+        lLeg.rotation.x = Math.sin(clockTime * 12) * 0.2;
+        rLeg.rotation.x = -Math.sin(clockTime * 12) * 0.2;
+        lArm.rotation.set(Math.sin(clockTime * 10) * 0.5 - 1.2, 0, 0.4);
+        rArm.rotation.set(Math.sin(clockTime * 10) * 0.5 - 1.2, 0, -0.4);
+      } else if (Math.abs(windForceX) > 0.4) {
         const absWindX = Math.abs(windForceX);
-        const clockTime = state.clock.getElapsedTime();
         
-        // 1. Lean into the wind to fight it
+        // Lean into the wind to fight it
         visual.rotation.z = -windForceX * 0.055;
         
-        // 2. Wobble side-to-side losing balance
+        // Wobble side-to-side losing balance
         const wobble = Math.sin(clockTime * 18.0) * 0.08 * (absWindX / 3.0);
         visual.rotation.x = wobble;
         
-        // 3. Feet slide across platform: slide wobble offset
+        // Feet slide across platform: slide wobble offset
         visual.position.x = Math.cos(clockTime * 22.0) * 0.04 * (absWindX / 2.0);
         
-        // 4. Arms & legs flailing frantically
+        // Arms & legs flailing frantically
         const flailTime = clockTime * 28.0;
         lArm.rotation.set(-Math.PI / 4, 0.4, -Math.PI / 2.5 + Math.sin(flailTime) * 0.65);
         rArm.rotation.set(-Math.PI / 4, -0.4, Math.PI / 2.5 + Math.cos(flailTime) * 0.65);
@@ -1174,33 +1190,43 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         rLeg.rotation.x = 0.4;
         lArm.rotation.set(-0.4, 0, 0.5);
         rArm.rotation.set(-0.4, 0, -0.5);
-        visual.position.y = -0.2;
+        targetPosY = -0.2;
       } else if (!isGroundedRef.current) {
-        visual.scale.set(0.54, 0.69, 0.54);
+        targetScaleX = 0.54;
+        targetScaleY = 0.69;
+        targetScaleZ = 0.54;
         const flail = 22;
-        lLeg.rotation.x = Math.sin(state.clock.getElapsedTime() * flail) * 0.5;
-        rLeg.rotation.x = Math.cos(state.clock.getElapsedTime() * flail) * 0.5;
-        lArm.rotation.z = -Math.PI/3 + Math.sin(state.clock.getElapsedTime() * flail) * 0.4;
-        rArm.rotation.z = Math.PI/3 + Math.cos(state.clock.getElapsedTime() * flail) * 0.4;
-      } else if (speed > 0.1) {
-        const walkRunBlend = Math.min(1.0, speed / 4.8);
+        lLeg.rotation.x = Math.sin(clockTime * flail) * 0.5;
+        rLeg.rotation.x = Math.cos(clockTime * flail) * 0.5;
+        lArm.rotation.z = -Math.PI/3 + Math.sin(clockTime * flail) * 0.4;
+        rArm.rotation.z = Math.PI/3 + Math.cos(clockTime * flail) * 0.4;
+      } else if (smoothedSpeedRef.current > 0.1) {
+        const walkRunBlend = Math.min(1.0, smoothedSpeedRef.current / botSpeed.current);
         const waddleFreq = 5.0 + walkRunBlend * 10.0;
-        const legSwing = Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.55 * walkRunBlend;
-        const armSwing = Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.6 * walkRunBlend;
+        const legSwing = Math.sin(clockTime * waddleFreq) * 0.55 * walkRunBlend;
+        const armSwing = Math.sin(clockTime * waddleFreq) * 0.6 * walkRunBlend;
 
         lLeg.rotation.x = legSwing;
         rLeg.rotation.x = -legSwing;
         lArm.rotation.x = -armSwing;
         rArm.rotation.x = armSwing;
         
-        visual.position.y = -0.12 + Math.abs(Math.sin(state.clock.getElapsedTime() * waddleFreq)) * 0.12 * walkRunBlend;
-        visual.rotation.z = Math.sin(state.clock.getElapsedTime() * waddleFreq) * 0.08 * walkRunBlend;
+        targetPosY = -0.12 + Math.abs(Math.sin(clockTime * waddleFreq)) * 0.12 * walkRunBlend;
+        visual.rotation.z = Math.sin(clockTime * waddleFreq) * 0.08 * walkRunBlend;
       } else {
         const breathing = 2.5;
-        visual.position.y = -0.12 + Math.sin(state.clock.getElapsedTime() * breathing) * 0.03;
-        lArm.rotation.z = -Math.sin(state.clock.getElapsedTime() * breathing) * 0.05 - 0.15;
-        rArm.rotation.z = Math.sin(state.clock.getElapsedTime() * breathing) * 0.05 + 0.15;
+        targetPosY = -0.12 + Math.sin(clockTime * breathing) * 0.03;
+        lArm.rotation.z = -Math.sin(clockTime * breathing) * 0.05 - 0.15;
+        rArm.rotation.z = Math.sin(clockTime * breathing) * 0.05 + 0.15;
       }
+
+      // Smooth visual scale lerp to prevent pop during jumping/landing transitions
+      visual.scale.x = THREE.MathUtils.lerp(visual.scale.x, targetScaleX, delta * 12.0);
+      visual.scale.y = THREE.MathUtils.lerp(visual.scale.y, targetScaleY, delta * 12.0);
+      visual.scale.z = THREE.MathUtils.lerp(visual.scale.z, targetScaleZ, delta * 12.0);
+
+      // Smooth visual position Y lerp to prevent pop between states
+      visual.position.y = THREE.MathUtils.lerp(visual.position.y, targetPosY, delta * 12.0);
     }
   });
 

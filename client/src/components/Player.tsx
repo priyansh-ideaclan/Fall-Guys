@@ -51,6 +51,7 @@ export const Player: React.FC = () => {
   const isGroundedRef = useRef(false);
   const wasGroundedRef = useRef(false);
   const isDivingRef = useRef(false);
+  const smoothedSpeedRef = useRef(0);
   const diveTimerRef = useRef(0);
   const diveCooldownRef = useRef(0);
   const isGrabbingRef = useRef(false);
@@ -344,7 +345,7 @@ export const Player: React.FC = () => {
     }
 
     // 4. Calibrate movement values based on surface type
-    let moveSpeed = 4.8;
+    let moveSpeed = 5.5;
     let accelerationRatio = isGroundedRef.current ? 0.22 : 0.08;
     let jumpImpulse = 6.2;
 
@@ -573,7 +574,7 @@ export const Player: React.FC = () => {
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
       
-      visualGroupRef.current.rotation.y += diff * Math.min(1.0, 12.0 * delta);
+      visualGroupRef.current.rotation.y += diff * Math.min(1.0, 8.5 * delta);
     }
 
     // Track landing squish
@@ -588,6 +589,9 @@ export const Player: React.FC = () => {
     // 6. Procedural Animations states
     const clockTime = state.clock.getElapsedTime();
     const speed = new THREE.Vector3(currentVel.x, 0, currentVel.z).length();
+    
+    // Smooth speed updates to prevent animation blending pops
+    smoothedSpeedRef.current = THREE.MathUtils.lerp(smoothedSpeedRef.current, speed, delta * 10.0);
 
     const visual = visualGroupRef.current;
     const lLeg = leftLegRef.current;
@@ -598,18 +602,22 @@ export const Player: React.FC = () => {
     if (visual && lLeg && rLeg && lArm && rArm) {
       const squishXZ = 1.0 + landingSquish.current * 0.4;
       const squishY = 1.0 - landingSquish.current * 0.75;
-      visual.scale.set(0.6 * squishXZ, 0.6 * squishY, 0.6 * squishXZ);
+      
+      let targetScaleX = 0.6 * squishXZ;
+      let targetScaleY = 0.6 * squishY;
+      let targetScaleZ = 0.6 * squishXZ;
+      let targetPosY = -0.12;
+
       visual.rotation.x = 0;
       visual.rotation.z = 0;
       lLeg.rotation.set(0, 0, 0);
       rLeg.rotation.set(0, 0, 0);
       lArm.rotation.set(0, 0, 0.1);
       rArm.rotation.set(0, 0, -0.1);
-      visual.position.y = -0.12;
 
       if (playerQualified) {
         // Celebration bounce dance!
-        visual.position.y = -0.12 + Math.abs(Math.sin(clockTime * 12)) * 0.25;
+        targetPosY = -0.12 + Math.abs(Math.sin(clockTime * 12)) * 0.25;
         lLeg.rotation.x = Math.sin(clockTime * 12) * 0.2;
         rLeg.rotation.x = -Math.sin(clockTime * 12) * 0.2;
         lArm.rotation.set(Math.sin(clockTime * 10) * 0.5 - 1.2, 0, 0.4);
@@ -617,17 +625,17 @@ export const Player: React.FC = () => {
       } else if (Math.abs(windForceX) > 0.4 && !isGodMode) {
         const absWindX = Math.abs(windForceX);
         
-        // 1. Lean into the wind to fight it
+        // Lean into the wind to fight it
         visual.rotation.z = -windForceX * 0.055;
         
-        // 2. Wobble side-to-side losing balance
+        // Wobble side-to-side losing balance
         const wobble = Math.sin(clockTime * 18.0) * 0.08 * (absWindX / 3.0);
         visual.rotation.x = wobble;
         
-        // 3. Feet slide across platform: slide wobble offset
+        // Feet slide across platform: slide wobble offset
         visual.position.x = Math.cos(clockTime * 22.0) * 0.04 * (absWindX / 2.0);
         
-        // 4. Arms & legs flailing frantically
+        // Arms & legs flailing frantically
         const flailTime = clockTime * 28.0;
         lArm.rotation.set(-Math.PI / 4, 0.4, -Math.PI / 2.5 + Math.sin(flailTime) * 0.65);
         rArm.rotation.set(-Math.PI / 4, -0.4, Math.PI / 2.5 + Math.cos(flailTime) * 0.65);
@@ -648,7 +656,7 @@ export const Player: React.FC = () => {
         rLeg.rotation.z = 0.2;
         lArm.rotation.x = -1.2;
         rArm.rotation.x = -1.2;
-        visual.position.y = -0.22;
+        targetPosY = -0.22;
       } else if (currentSurface === 'slide' || currentSurface === 'speed-ramp') {
         // Slide pose: lean forward, arms out, feet back
         visual.rotation.x = Math.PI / 4.5;
@@ -656,9 +664,11 @@ export const Player: React.FC = () => {
         rLeg.rotation.x = 0.4;
         lArm.rotation.set(-0.4, 0, 0.5);
         rArm.rotation.set(-0.4, 0, -0.5);
-        visual.position.y = -0.2;
+        targetPosY = -0.2;
       } else if (!isGroundedRef.current) {
-        visual.scale.set(0.54, 0.69, 0.54);
+        targetScaleX = 0.54;
+        targetScaleY = 0.69;
+        targetScaleZ = 0.54;
         const flailFreq = 22;
         lLeg.rotation.x = Math.sin(clockTime * flailFreq) * 0.6;
         rLeg.rotation.x = Math.cos(clockTime * flailFreq) * 0.6;
@@ -672,9 +682,9 @@ export const Player: React.FC = () => {
         lArm.rotation.y = 0.15;
         rArm.rotation.x = -Math.PI / 2;
         rArm.rotation.y = -0.15;
-        visual.position.y = -0.12 + Math.abs(Math.sin(clockTime * waddleFreq)) * 0.05;
-      } else if (speed > 0.1) {
-        const walkRunBlend = Math.min(1.0, speed / 4.8);
+        targetPosY = -0.12 + Math.abs(Math.sin(clockTime * waddleFreq)) * 0.05;
+      } else if (smoothedSpeedRef.current > 0.1) {
+        const walkRunBlend = Math.min(1.0, smoothedSpeedRef.current / 5.5);
         const runningFreq = 5.0 + walkRunBlend * 10.0;
         const legSwing = Math.sin(clockTime * runningFreq) * 0.55 * walkRunBlend;
         const armSwing = Math.sin(clockTime * runningFreq) * 0.6 * walkRunBlend;
@@ -683,14 +693,22 @@ export const Player: React.FC = () => {
         rLeg.rotation.x = -legSwing;
         lArm.rotation.x = -armSwing;
         rArm.rotation.x = armSwing;
-        visual.position.y = -0.12 + Math.abs(Math.sin(clockTime * runningFreq)) * 0.12 * walkRunBlend;
+        targetPosY = -0.12 + Math.abs(Math.sin(clockTime * runningFreq)) * 0.12 * walkRunBlend;
         visual.rotation.z = Math.sin(clockTime * runningFreq) * 0.08 * walkRunBlend;
       } else {
         const idleFreq = 2.5;
-        visual.position.y = -0.12 + Math.sin(clockTime * idleFreq) * 0.03;
+        targetPosY = -0.12 + Math.sin(clockTime * idleFreq) * 0.03;
         lArm.rotation.z = -Math.sin(clockTime * idleFreq) * 0.05 - 0.15;
         rArm.rotation.z = Math.sin(clockTime * idleFreq) * 0.05 + 0.15;
       }
+
+      // Smooth visual scale lerp to prevent pop during jumping/landing transitions
+      visual.scale.x = THREE.MathUtils.lerp(visual.scale.x, targetScaleX, delta * 12.0);
+      visual.scale.y = THREE.MathUtils.lerp(visual.scale.y, targetScaleY, delta * 12.0);
+      visual.scale.z = THREE.MathUtils.lerp(visual.scale.z, targetScaleZ, delta * 12.0);
+
+      // Smooth visual position Y lerp to prevent pop between states
+      visual.position.y = THREE.MathUtils.lerp(visual.position.y, targetPosY, delta * 12.0);
     }
     // Update name label scale and opacity based on camera distance to avoid clutter
     if (nameLabelRef.current) {
