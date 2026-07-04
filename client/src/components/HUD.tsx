@@ -240,9 +240,16 @@ export const HUD: React.FC = () => {
     [allParticipants, winnersList]
   );
 
-  // Survivors count for Survival
-  const survivorsCount = activeBots.length + 1; // +1 for player
-  const eliminatedCount = (eliminatedBots || []).length;
+  const getOrdinal = (n: number) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
+  const playerAlive = !isPlayerEliminated;
+  const survivorsCount = activeBots.length + (playerAlive ? 1 : 0);
+  const eliminatedCount = (eliminatedBots || []).length + (playerAlive ? 0 : 1);
+  const totalParticipants = survivorsCount + eliminatedCount;
 
   // Hunt rankings
   const huntRankings = useMemo(() => {
@@ -438,14 +445,32 @@ export const HUD: React.FC = () => {
 
             {/* SURVIVAL: Survivors panel */}
             {currentLevelType === 'SURVIVAL' && (
-              <div className="glass-panel" style={{ padding: '12px 18px', textAlign: 'right', border: `2px solid ${modeColor}`, boxShadow: `0 0 10px ${modeColor}33` }}>
+              <div className="glass-panel" style={{
+                padding: '12px 18px',
+                textAlign: 'right',
+                border: `2px solid ${modeColor}`,
+                boxShadow: `0 0 10px ${modeColor}33`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px'
+              }}>
                 <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: modeColor, fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
-                  <Users size={12} /> Alive
+                  <Users size={12} /> Survival Status
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white' }}>{survivorsCount}</div>
-                <div style={{ fontSize: '0.72rem', color: 'rgba(255,0,85,0.8)', fontWeight: 700 }}>
-                  ✗ {eliminatedCount} out
+                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: 'white', lineHeight: 1.1 }}>
+                  {playerAlive ? 'ALIVE' : 'ELIMINATED'}
                 </div>
+                <div style={{ fontSize: '0.75rem', color: playerAlive ? '#39ff14' : '#ff0055', fontWeight: 800 }}>
+                  {playerAlive ? '🟢 Safe' : '🔴 Out'}
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700, marginTop: '2px' }}>
+                  Alive: <span style={{ color: 'white', fontWeight: 900 }}>{survivorsCount}</span> / {totalParticipants}
+                </div>
+                {playerAlive && (
+                  <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>
+                    Placement: <span style={{ color: '#ffd60a', fontWeight: 900 }}>{getOrdinal(survivorsCount)}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -905,7 +930,7 @@ export const HUD: React.FC = () => {
             textAlign: 'center',
             background: 'rgba(255, 0, 85, 0.4)'
           }}>
-            💀 YOU WERE ELIMINATED!
+            💀 YOU WERE ELIMINATED! ({getOrdinal(survivorsCount + 1)} Place)
           </div>
           {activeBots.length > 0 && (
             <div className="glass-panel" style={{
@@ -923,7 +948,7 @@ export const HUD: React.FC = () => {
       )}
 
       {/* Live Leaderboard */}
-      <RaceLeaderboard />
+      {currentLevelType === 'RACE' && <RaceLeaderboard />}
     </div>
   );
 };
