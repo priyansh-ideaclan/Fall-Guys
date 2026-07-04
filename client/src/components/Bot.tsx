@@ -721,7 +721,9 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       // Spinning sweeper: run in a slow circle around center
       const botIdx = parseInt(id.replace('bot_', '')) || 0;
       const time = state.clock.getElapsedTime();
-      const radius = 3.5 + (botIdx % 3) * 0.8;
+      const isFloorRotating = (useGameStore.getState() as any).isPlatformRotating;
+      // Shrink radius and steer aggressively to the center if platform is spinning
+      const radius = isFloorRotating ? (1.8 + (botIdx % 2) * 0.5) : (3.5 + (botIdx % 3) * 0.8);
       const angle = time * 0.35 + (botIdx * Math.PI / 4.5);
       const targetPos = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
 
@@ -931,21 +933,51 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     }
 
     // B. Obstacle sweeper jumping with timing checks (dodging approaching arms)
-    const sweepers = state.scene.children.filter((child) => child.name === 'rotating-arm');
+    const sweepers = state.scene.children.filter(
+      (child) => child.name === 'rotating-arm' || child.name === 'lower-beam'
+    );
     sweepers.forEach((sweeper) => {
       const sweeperPos = new THREE.Vector3();
       sweeper.getWorldPosition(sweeperPos);
       const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(sweeperPos);
       
-      if (dist < 3.2 && jumpCooldown.current <= 0) {
+      const checkDist = sweeper.name === 'lower-beam' ? 8.2 : 3.2;
+      if (dist < checkDist && jumpCooldown.current <= 0) {
         const botAngle = Math.atan2(pos.x - sweeperPos.x, pos.z - sweeperPos.z);
         const sweepRot = sweeper.rotation.y;
-        let angleDiff = Math.abs(sweepRot - botAngle);
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        angleDiff = Math.abs(angleDiff);
+        
+        let angleDiff = (sweepRot - botAngle) % Math.PI;
+        if (angleDiff < 0) angleDiff += Math.PI;
+        
+        const triggerThreshold = sweeper.name === 'lower-beam' ? 0.32 : 0.8;
+        const isApproaching = angleDiff < triggerThreshold || angleDiff > Math.PI - triggerThreshold;
 
-        if (angleDiff < 0.8 && Math.random() < (difficulty === 'EASY' ? 0.5 : difficulty === 'MEDIUM' ? 0.8 : 0.98)) {
-          shouldJump = true;
+        if (isApproaching) {
+          // If this is the lower beam, check if the upper beam is overhead
+          let upperBeamBlocking = false;
+          if (sweeper.name === 'lower-beam') {
+            const upperBeams = state.scene.children.filter((child) => child.name === 'upper-beam');
+            upperBeams.forEach((uBeam) => {
+              let uDiff = (uBeam.rotation.y - botAngle) % Math.PI;
+              if (uDiff < 0) uDiff += Math.PI;
+              if (uDiff < 0.35 || uDiff > Math.PI - 0.35) {
+                upperBeamBlocking = true;
+              }
+            });
+          }
+
+          // Dodge lower beam, unless blocked by upper beam
+          if (!upperBeamBlocking) {
+            const successRate = difficulty === 'EASY' ? 0.55 : difficulty === 'MEDIUM' ? 0.78 : 0.96;
+            if (Math.random() < successRate) {
+              shouldJump = true;
+            }
+          } else {
+            // Under upper beam: occasionally panic jump, but mostly run away
+            if (Math.random() < 0.15 && difficulty === 'EASY') {
+              shouldJump = true; // Make mistakes!
+            }
+          }
         }
       }
     });
@@ -1245,7 +1277,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       userData={{ id }}
       onCollisionEnter={(event) => {
         const other = event.other.rigidBodyObject;
-        if (other && (other.name === 'rotating-arm' || other.name === 'windmill-blade')) {
+        if (other && (other.name === 'rotating-arm' || other.name === 'windmill-blade' || other.name === 'lower-beam' || other.name === 'upper-beam')) {
           const botPos = rigidBodyRef.current!.translation();
           const otherWorldPos = new THREE.Vector3();
           other.getWorldPosition(otherWorldPos);
@@ -1266,10 +1298,10 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
             .addScaledVector(tangent, 0.65)
             .addScaledVector(radial, 0.35)
             .normalize();
-          dir.y = 0.24; // slight upward lift
+          dir.y = other.name === 'lower-beam' ? 0.38 : 0.24;
 
-          // Stronger knockback force for rotating sweepers
-          const knockForce = other.name === 'rotating-arm' ? 12.8 : 8.5;
+          // Stronger knockback force for lower-beam
+          const knockForce = other.name === 'lower-beam' ? 14.8 : (other.name === 'rotating-arm' ? 12.8 : 8.5);
           
           knockbackVelRef.current.copy(dir).multiplyScalar(knockForce);
           knockbackTimerRef.current = 0.5;

@@ -98,6 +98,10 @@ interface GameState {
   isPlayerSliding: boolean;
   setPlayerSliding: (sliding: boolean) => void;
 
+  cameraShake: number;
+  triggerCameraShake: (amount: number) => void;
+  tickCameraShake: (dt: number) => void;
+
   // Actions
   setPhase: (phase: GamePhase) => void;
   setCinematicActive: (active: boolean) => void;
@@ -180,9 +184,9 @@ const ROUND_PROGRESSION: Array<{
   {
     levelId: 'survival_1',
     type: 'SURVIVAL',
-    objective: 'Stay alive on the spinning arena! Don\'t fall off!',
+    objective: 'Jungle Spin Out: Stay alive on the rotating jungle platform and dodge the dual spinning logs!',
     qualifyLimit: 6,
-    timeLimit: 30,
+    timeLimit: 38,
   },
   {
     levelId: 'logic_1',
@@ -269,6 +273,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   isNitroActive: false,
   nitroCooldown: 0,
   isPlayerSliding: false,
+  cameraShake: 0,
 
   setPhase: (phase) => set({ phase }),
   setCinematicActive: (active) => set({ cinematicActive: active }),
@@ -313,6 +318,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
   setPlayerSliding: (sliding) => set({ isPlayerSliding: sliding }),
+
+  triggerCameraShake: (amount) => set((state) => ({ cameraShake: Math.max(state.cameraShake, amount) })),
+  tickCameraShake: (dt) => set((state) => ({ cameraShake: Math.max(0, state.cameraShake - dt * 2.8) })),
 
   updateCustomization: (customization) => set((state) => ({
     customization: { ...state.customization, ...customization }

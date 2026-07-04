@@ -407,12 +407,17 @@ export const CameraController: React.FC = () => {
     camera.position.copy(smoothCamPos.current);
     camera.lookAt(smoothLookAt.current);
 
-    // Dynamic speed shake vibration during boost
-    if (nitroEffectVal.current > 0.05) {
-      const shake = nitroEffectVal.current * 0.035;
-      camera.position.x += (Math.random() - 0.5) * shake;
-      camera.position.y += (Math.random() - 0.5) * shake;
-      camera.position.z += (Math.random() - 0.5) * shake;
+    // Dynamic speed shake vibration during boost + impact screen shake
+    const { cameraShake, tickCameraShake } = useGameStore.getState();
+    if (cameraShake > 0) {
+      tickCameraShake(delta);
+    }
+
+    const totalShake = (nitroEffectVal.current * 0.035) + (cameraShake * 0.42);
+    if (totalShake > 0.005) {
+      camera.position.x += (Math.random() - 0.5) * totalShake;
+      camera.position.y += (Math.random() - 0.5) * totalShake;
+      camera.position.z += (Math.random() - 0.5) * totalShake;
     }
 
     // Dynamic camera occlusion detection (fades out tiles between camera and player)

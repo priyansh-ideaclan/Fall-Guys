@@ -735,7 +735,7 @@ export const Player: React.FC = () => {
       onCollisionEnter={(event) => {
         if (isGodMode) return;
         const other = event.other.rigidBodyObject;
-        if (other && (other.name === 'rotating-arm' || other.name === 'windmill-blade')) {
+        if (other && (other.name === 'rotating-arm' || other.name === 'windmill-blade' || other.name === 'lower-beam' || other.name === 'upper-beam')) {
           const playerPos = rigidBodyRef.current!.translation();
           const otherWorldPos = new THREE.Vector3();
           other.getWorldPosition(otherWorldPos);
@@ -756,14 +756,15 @@ export const Player: React.FC = () => {
             .addScaledVector(tangent, 0.65)
             .addScaledVector(radial, 0.35)
             .normalize();
-          dir.y = 0.24; // slight upward lift to launch player in the air
+          dir.y = other.name === 'lower-beam' ? 0.38 : 0.24; // Lower beam launches player high
 
-          // Stronger knockback force for rotating sweepers
-          const knockForce = other.name === 'rotating-arm' ? 12.8 : 8.5;
+          // Stronger knockback force for rotating sweepers and lower-beam
+          const knockForce = other.name === 'lower-beam' ? 14.8 : (other.name === 'rotating-arm' ? 12.8 : 8.5);
           
           knockbackVelRef.current.copy(dir).multiplyScalar(knockForce);
           knockbackTimerRef.current = 0.5;
           audioManager.playCollision(); // Play bonk sound effect!
+          useGameStore.getState().triggerCameraShake(other.name === 'lower-beam' ? 0.65 : 0.35);
           useGameStore.getState().triggerSplash([playerPos.x, playerPos.y, playerPos.z], '#ff007f'); // Pink splash!
         } else if (other && other.name === 'cannonball') {
           const playerPos = rigidBodyRef.current!.translation();
