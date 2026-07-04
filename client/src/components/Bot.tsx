@@ -27,7 +27,10 @@ const LEVEL_1_LEFT_PATH: [number, number, number][] = [
   [0, 1.05, 47.0],   // Jump Pad
   [0, 7.5, 54.0],    // Landing deck Storey 1
   [-3.5, 7.9, 61.0], // Ice platform left Storey 2
-  [0, 10.3, 72.0],   // Checkpoint 3 Storey 4
+  [-6.5, 8.7, 65.5], // Arena left edge (clear of center Hammer 1 arc)
+  [-6.5, 8.7, 69.5], // Arena left edge (between Hammer 2 and Hammer 4)
+  [-6.5, 8.7, 73.5], // Arena left exit (clear of Hammer 5 & 6)
+  [0, 8.7, 76.5],   // Checkpoint 3
   [-5.0, 8.5, 76.0], // Left water slide entry
   [-5.0, 5.0, 83.0], // Left water slide mid
   [0, 4.1, 88.0],    // Slide landing deck
@@ -54,7 +57,11 @@ const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
   [0, 1.05, 47.0],   // Jump Pad
   [0, 7.5, 54.0],    // Landing deck Storey 1
   [0, 7.5, 54.0],    // Stay in center
-  [0, 10.3, 72.0],   // Checkpoint 3 Storey 4
+  [-4.0, 8.3, 61.0], // Windmill crossing – hug left (avoid right windmills)
+  [6.5, 8.7, 65.5],  // Arena right edge entry (dodge Hammer 1 center)
+  [-6.5, 8.7, 69.5], // Arena left side mid (between Hammer 3 and Hammer 4)
+  [6.5, 8.7, 73.5],  // Arena right exit (dodge Hammer 5)
+  [0, 8.7, 76.5],   // Checkpoint 3
   [0.0, 8.5, 76.0],  // Middle slide entry
   [0.0, 5.0, 83.0],  // Middle slide mid
   [0, 4.1, 88.0],    // Slide landing deck
@@ -78,8 +85,11 @@ const LEVEL_1_RIGHT_PATH: [number, number, number][] = [
   [0, 1.0, 40.6],    // Checkpoint 2
   [0, 1.05, 47.0],   // Jump Pad
   [0, 7.5, 54.0],    // Landing deck Storey 1
-  [3.5, 9.1, 65.0],  // Bridge right Storey 3
-  [0, 10.3, 72.0],   // Checkpoint 3 Storey 4
+  [4.5, 8.3, 61.0],  // Windmill bridge right Storey 2 – thread between windmills
+  [6.5, 8.7, 65.5],  // Arena right edge entry (dodge Hammer 1)
+  [6.5, 8.7, 69.5],  // Arena right mid (between Hammer 3 and Hammer 4)
+  [-6.5, 8.7, 73.5], // Arena left exit (dodge Hammer 6)
+  [0, 8.7, 76.5],   // Checkpoint 3
   [5.0, 8.5, 76.0],  // Right slide entry
   [5.0, 5.0, 83.0],  // Right slide mid
   [0, 4.1, 88.0],    // Slide landing deck

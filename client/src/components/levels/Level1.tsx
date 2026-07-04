@@ -25,7 +25,10 @@ import {
   HorizontalWindBlower,
   CandyHill,
   CandyMountain,
-  DriftingCloud
+  DriftingCloud,
+  SpinningHammer,
+  StartLine,
+  GoalLine
 } from '../LevelObstacles';
 import { useGameStore } from '../../store/useGameStore';
 import { getThemeConfig } from '../../utils/themeManager';
@@ -143,7 +146,7 @@ export const Level1: React.FC = () => {
   // Checkpoint celebration states
   const isCp1Active = !!(lastCheckpoint && Math.abs(lastCheckpoint[2] - 20) < 1.5);
   const isCp2Active = !!(lastCheckpoint && Math.abs(lastCheckpoint[2] - 42.6) < 1.5);
-  const isCp3Active = !!(lastCheckpoint && Math.abs(lastCheckpoint[2] - 73.0) < 1.5);
+  const isCp3Active = !!(lastCheckpoint && Math.abs(lastCheckpoint[2] - 76.5) < 1.5);
   const isCp4Active = !!(lastCheckpoint && Math.abs(lastCheckpoint[2] - 100.0) < 1.5);
 
   return (
@@ -204,6 +207,8 @@ export const Level1: React.FC = () => {
           <meshStandardMaterial color={config.obstacleColor1} roughness={0.5} />
         </mesh>
       </RigidBody>
+      {/* ── START LINE GANTRY & CHECKERED FLOOR ── */}
+      <StartLine position={[0, -0.0, 3.0]} width={12} />
 
       {/* Forest Trees and Flags at Spawn */}
       <DecorativeTree position={[-7.5, -0.8, -3.0]} type="candy" variant="candy-pink" scale={1.1} />
@@ -340,38 +345,83 @@ export const Level1: React.FC = () => {
       <WavingFlag position={[-5.5, 7.5, 54.0]} color="#00e5ff" />
       <WavingFlag position={[5.5, 7.5, 54.0]} color="#ff007f" />
 
-      {/* Storey 2 (Ice Platform left) at Z = 61.0, Y = 8.3 */}
+      {/* ── STOREY 2: Ice Platform (left) + Windmill Bridge (right) at Z = 61.0, Y = 8.3 ── */}
+      {/* Ice Platform – left side */}
       <IcePlatform position={[-3.5, 7.9, 61.0]} size={[5.0, 0.8, 5.0]} color="#b2f2ff" />
       <DecorativeTree position={[-7.5, 8.3, 61.0]} type="candy" variant="candy-purple" scale={0.8} />
 
-      {/* Storey 3 (Static bridge and rotating Windmills) at Z = 65.0, Y = 9.5 */}
+      {/* Right-side static bridge for windmills */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[3.0, 0.4, 3.0]} position={[3.5, 8.7, 65.0]} />
-        <mesh receiveShadow position={[3.5, 8.7, 65.0]}>
-          <boxGeometry args={[6.0, 0.8, 6.0]} />
-          <meshStandardMaterial color={config.groundColor} roughness={0.6} />
+        <CuboidCollider args={[2.5, 0.4, 2.5]} position={[3.5, 7.9, 61.0]} />
+        <mesh receiveShadow position={[3.5, 7.9, 61.0]}>
+          <boxGeometry args={[5.0, 0.8, 5.0]} />
+          <meshStandardMaterial color="#ffd60a" roughness={0.4} metalness={0.1} />
         </mesh>
       </RigidBody>
-      <mesh position={[0.45, 9.3, 65.0]} castShadow>
-        <boxGeometry args={[0.1, 0.8, 6.0]} />
-        <meshStandardMaterial color="#ffd60a" roughness={0.3} />
-      </mesh>
-      
-      {/* Dual Windmill Obstacles on bridge! Opposite rotation makes it dynamic */}
-      <Windmill position={[1.8, 10.5, 65.0]} speed={1.8} color="#ffd60a" />
-      <Windmill position={[5.2, 10.5, 65.0]} speed={-1.6} color="#ffd60a" />
+      {/* Windmill pair on the right bridge – opposite rotations force timing */}
+      <Windmill position={[1.9, 9.6, 61.0]} speed={1.8} color="#ffd60a" />
+      <Windmill position={[5.1, 9.6, 61.0]} speed={-1.6} color="#ffd60a" />
 
-      {/* Storey 4 (Merge deck with Checkpoint) at Z = 72.0, Y = 10.7 */}
+      {/* ── SPINNING HAMMER ARENA (LM27–29) — One large merged platform ── */}
+      {/* Wide open arena: 18m × 12m, spanning Z = 63.5 to 75.5, centered at Z = 69.5 */}
       <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[6.0, 0.4, 2.5]} position={[0, 10.3, 72.0]} />
-        <mesh receiveShadow position={[0, 10.3, 72.0]}>
+        <CuboidCollider args={[9.0, 0.4, 6.0]} position={[0, 8.7, 69.5]} />
+        <mesh receiveShadow position={[0, 8.7, 69.5]}>
+          <boxGeometry args={[18.0, 0.8, 12.0]} />
+          <meshStandardMaterial color="#7b2fff" roughness={0.35} metalness={0.18} />
+        </mesh>
+      </RigidBody>
+      {/* Gold edge trim */}
+      <mesh position={[0, 8.76, 69.5]}>
+        <boxGeometry args={[18.2, 0.07, 12.2]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.15} metalness={0.5}
+          emissive="#ffd60a" emissiveIntensity={0.22} />
+      </mesh>
+      {/* Subtle floor pattern inlay strips (visual only) */}
+      {[65.5, 69.5, 73.5].map((z, i) => (
+        <mesh key={i} position={[0, 8.77, z]}>
+          <boxGeometry args={[17.8, 0.02, 0.18]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.2} opacity={0.18} transparent />
+        </mesh>
+      ))}
+
+      {/* ── HAMMER 1 — Slow (introduction) — center entry — */}
+      {/* Position: front-center of arena, Z=65.0 — players enter from left/right */}
+      <SpinningHammer position={[0, 9.5, 65.5]} speed={1.1} armLength={2.4}
+        color="#ff2d6f" armColor="#ffe033" />
+
+      {/* ── HAMMER 2 — Medium CW — left lane — */}
+      <SpinningHammer position={[-4.5, 9.5, 67.5]} speed={-1.8} armLength={2.2}
+        color="#00c9ff" armColor="#ffe033" />
+
+      {/* ── HAMMER 3 — Medium CCW — right lane — */}
+      <SpinningHammer position={[4.5, 9.5, 67.5]} speed={2.0} armLength={2.2}
+        color="#ff6b00" armColor="#ffe033" />
+
+      {/* ── HAMMER 4 — Fast — dead center — */}
+      <SpinningHammer position={[0, 9.5, 70.5]} speed={-2.8} armLength={2.4}
+        color="#ff2d6f" armColor="#ffe033" />
+
+      {/* ── HAMMER 5 — Variable speed (slow→fast→slow) — far left — */}
+      <SpinningHammer position={[-4.5, 9.5, 72.5]} speed={2.2} armLength={2.0}
+        color="#a855f7" armColor="#ffe033" variable />
+
+      {/* ── HAMMER 6 — Fast CW — far right — hardest to dodge near the exit — */}
+      <SpinningHammer position={[4.5, 9.5, 72.5]} speed={-2.6} armLength={2.0}
+        color="#00c9ff" armColor="#ffe033" />
+
+      {/* Checkpoint 3 merge deck — immediately after hammer arena exit (Z=75.5) */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[6.0, 0.4, 2.5]} position={[0, 8.7, 76.5]} />
+        <mesh receiveShadow position={[0, 8.7, 76.5]}>
           <boxGeometry args={[12.0, 0.8, 5.0]} />
           <meshStandardMaterial color={config.groundColor} roughness={0.6} />
         </mesh>
       </RigidBody>
-
+      <Checkpoint position={[0, 8.7, 76.5]} id={3} />
 
       {/* Parallel Slides (Left, Middle, Right) */}
+
       {/* Left: Water slide (Blue) */}
       <RigidBody type="fixed" colliders={false} userData={{ surface: 'slide' }}>
         <CuboidCollider args={[1.5, 0.4, 5.0]} position={[-5.0, 7.4, 81.0]} rotation={[0.463, 0, 0]} />
@@ -485,49 +535,22 @@ export const Level1: React.FC = () => {
       <DecorativeTree position={[-7.5, 4.5, 112.0]} type="candy" variant="candy-yellow" scale={1.1} />
       <DecorativeTree position={[7.5, 4.5, 112.0]} type="candy" variant="candy-pink" scale={1.0} />
 
-      {/* Floating Celebration Balloons */}
-      <mesh position={[-7.0, 8.0, 122.0]} castShadow>
-        <sphereGeometry args={[0.3, 16, 16]} />
-        <meshStandardMaterial color="#ff007f" roughness={0.2} />
-      </mesh>
-      <mesh position={[7.0, 9.5, 124.0]} castShadow>
-        <sphereGeometry args={[0.3, 16, 16]} />
-        <meshStandardMaterial color="#ffd60a" roughness={0.2} />
-      </mesh>
-      <mesh position={[-6.0, 11.0, 128.0]} castShadow>
-        <sphereGeometry args={[0.3, 16, 16]} />
-        <meshStandardMaterial color="#00e5ff" roughness={0.2} />
-      </mesh>
+      {/* ── GOAL LINE ARCH & CHECKERED FLOOR ── */}
+      {/* Replaces old plain arch; balloons, flags, glow pods included in GoalLine */}
+      <GoalLine position={[0, -2.4, 135.0]} width={14} />
 
-
-      {/* ── FINISH LINE PLATFORM ────────────────────────────────────── */}
+      {/* Finish platform solid physics floor */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider args={[7.0, 0.4, 4.0]} position={[0, -2.4, 135.0]} />
         <mesh receiveShadow position={[0, -2.4, 135.0]}>
           <boxGeometry args={[14.0, 0.8, 8.0]} />
           <meshStandardMaterial color="#2e8b57" roughness={0.6} />
         </mesh>
-
-        {/* Victory Archway Pillars */}
-        <mesh castShadow position={[-5.8, -0.6, 135.0]}>
-          <cylinderGeometry args={[0.18, 0.18, 2.8, 12]} />
-          <meshStandardMaterial color={config.obstacleColor2} />
-        </mesh>
-        <mesh castShadow position={[5.8, -0.6, 135.0]}>
-          <cylinderGeometry args={[0.18, 0.18, 2.8, 12]} />
-          <meshStandardMaterial color={config.obstacleColor2} />
-        </mesh>
-        <mesh castShadow position={[0, 0.8, 135.0]}>
-          <boxGeometry args={[12.0, 0.4, 0.4]} />
-          <meshStandardMaterial color={config.obstacleColor1} />
-        </mesh>
       </RigidBody>
+      <WavingFlag position={[-7.5, -2.0, 137.5]} color="#ff007f" />
+      <WavingFlag position={[7.5, -2.0, 137.5]} color="#00e5ff" />
 
-      {/* Celebration flags at finish */}
-      <WavingFlag position={[-6.5, -2.0, 137.5]} color="#ff007f" />
-      <WavingFlag position={[6.5, -2.0, 137.5]} color="#00e5ff" />
-
-      {/* Finish trigger sensor */}
+      {/* Finish trigger sensor – positioned on the checkered line */}
       <RigidBody type="fixed" colliders={false}>
         <CuboidCollider 
           args={[6.8, 1.5, 0.2]} 

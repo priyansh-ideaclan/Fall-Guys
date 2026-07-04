@@ -1176,8 +1176,190 @@ export const SlimeSplash: React.FC<{ position: [number, number, number]; color?:
     </group>
   );
 };
+// ─── SpinningHammer ──────────────────────────────────────────────────────────
+
+interface SpinningHammerProps {
+  position: [number, number, number];
+  speed: number;             // base rad/s, positive = CCW, negative = CW
+  armLength?: number;        // half-arm length, default 2.4
+  color?: string;            // hammer head color
+  armColor?: string;         // arm bar color
+  variable?: boolean;        // if true, speed oscillates slow→fast→slow
+}
+
+export const SpinningHammer: React.FC<SpinningHammerProps> = ({
+  position,
+  speed,
+  armLength = 2.4,
+  color = '#ff2d6f',
+  armColor = '#ffe033',
+  variable = false,
+}) => {
+  const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const angleRef = useRef(0);
+  const cooldownRef = useRef<Record<string, number>>({});
+  const armHalf = armLength;
+
+  useFrame((_state, delta) => {
+    const rb = rigidBodyRef.current;
+    if (!rb) return;
+
+    // Variable speed: oscillates between 0.4× and 2.5× base using a sine wave
+    let effectiveSpeed = speed;
+    if (variable) {
+      const t = _state.clock.getElapsedTime();
+      const factor = 0.5 + 1.5 * (0.5 + 0.5 * Math.sin(t * 0.7));
+      effectiveSpeed = speed * factor;
+    }
+    angleRef.current += effectiveSpeed * delta;
+    const q = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      angleRef.current
+    );
+    rb.setNextKinematicRotation(q);
+  });
+
+  // Called by Rapier when the rotating arm contacts a dynamic body
+  const handleHit = (event: any) => {
+    const otherBody: RapierRigidBody | undefined = event.rigidBody;
+    const otherObj = event.rigidBodyObject;
+    if (!otherBody || !otherObj) return;
+    if (otherObj.name !== 'player' && otherObj.name !== 'bot') return;
+
+    // Throttle: max one knockback per body per 0.6s
+    const id = otherObj.uuid || otherObj.name;
+    const now = performance.now() / 1000;
+    if (cooldownRef.current[id] && now - cooldownRef.current[id] < 0.6) return;
+    cooldownRef.current[id] = now;
+
+    // Compute radial knockback direction from pivot to target
+    const pivotWorld = new THREE.Vector3(...position);
+    const targetPos = otherBody.translation();
+    const radialDir = new THREE.Vector3(
+      targetPos.x - pivotWorld.x,
+      0,
+      targetPos.z - pivotWorld.z
+    ).normalize();
+
+    // Tangential direction (perpendicular, matching hammer rotation direction)
+    const sign = speed >= 0 ? 1 : -1;
+    const tangentialDir = new THREE.Vector3(
+      -radialDir.z * sign,
+      0,
+      radialDir.x * sign
+    );
+
+    // Combined knockback: 70% tangential (sweep direction) + 30% radial (outward)
+    const KNOCK = 18.0;
+    const UP_BOOST = 7.0;
+    const kx = (tangentialDir.x * 0.7 + radialDir.x * 0.3) * KNOCK;
+    const kz = (tangentialDir.z * 0.7 + radialDir.z * 0.3) * KNOCK;
+
+    otherBody.setLinvel({ x: kx, y: UP_BOOST, z: kz }, true);
+    audioManager.playJump?.();
+  };
+
+  return (
+    <group position={position}>
+      {/* Fixed base pillar */}
+      <RigidBody type="fixed" colliders={false}>
+        {/* Base disc ring – large glossy accent */}
+        <mesh position={[0, 0.04, 0]} receiveShadow>
+          <cylinderGeometry args={[1.0, 1.08, 0.1, 28]} />
+          <meshStandardMaterial color="#bd00ff" roughness={0.2} metalness={0.5} />
+        </mesh>
+        {/* Inner gold ring */}
+        <mesh position={[0, 0.1, 0]}>
+          <cylinderGeometry args={[0.7, 0.72, 0.08, 28]} />
+          <meshStandardMaterial color="#ffd60a" roughness={0.15} metalness={0.6}
+            emissive="#ffd60a" emissiveIntensity={0.4} />
+        </mesh>
+        {/* Pillar shaft */}
+        <CylinderCollider args={[0.5, 0.32]} position={[0, 0.6, 0]} />
+        <mesh castShadow position={[0, 0.6, 0]}>
+          <cylinderGeometry args={[0.28, 0.32, 1.0, 18]} />
+          <meshStandardMaterial color="#ff007f" roughness={0.2} metalness={0.35} />
+        </mesh>
+        {/* Pillar top cap sphere */}
+        <mesh position={[0, 1.16, 0]} castShadow>
+          <sphereGeometry args={[0.32, 18, 18]} />
+          <meshStandardMaterial color="#ff5fab" roughness={0.1} metalness={0.55} />
+        </mesh>
+      </RigidBody>
+
+      {/* Kinematic rotating arm + hammer heads — explicit knockback via onCollisionEnter */}
+      <RigidBody
+        ref={rigidBodyRef}
+        type="kinematicPosition"
+        colliders={false}
+        name="spinning-hammer"
+        onCollisionEnter={handleHit}
+      >
+        {/* Arm bar collider + mesh */}
+        <CuboidCollider args={[armHalf, 0.16, 0.16]} position={[0, 1.2, 0]} />
+        <mesh castShadow position={[0, 1.2, 0]}>
+          <boxGeometry args={[armHalf * 2, 0.32, 0.32]} />
+          <meshStandardMaterial color={armColor} roughness={0.18} metalness={0.35} />
+        </mesh>
+        {/* Arm highlight gloss stripe */}
+        <mesh position={[0, 1.26, 0]}>
+          <boxGeometry args={[armHalf * 2, 0.06, 0.36]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.1} opacity={0.45} transparent />
+        </mesh>
+
+        {/* ── Hammer Head A (positive X end) ── */}
+        <group position={[armHalf, 1.2, 0]}>
+          <CuboidCollider args={[0.42, 0.42, 0.6]} />
+          {/* Main body */}
+          <mesh castShadow>
+            <boxGeometry args={[0.84, 0.84, 1.2]} />
+            <meshStandardMaterial color={color} roughness={0.12} metalness={0.25} />
+          </mesh>
+          {/* Glossy face plate */}
+          <mesh position={[0, 0, 0.65]}>
+            <cylinderGeometry args={[0.36, 0.36, 0.07, 22]} />
+            <meshStandardMaterial color="#ffffff" roughness={0.04} metalness={0.7} />
+          </mesh>
+          {/* Rounded tip sphere */}
+          <mesh position={[0, 0, 0.72]}>
+            <sphereGeometry args={[0.38, 18, 18]} />
+            <meshStandardMaterial color="#ffccdd" roughness={0.08} metalness={0.45} />
+          </mesh>
+          {/* Side stripe accent */}
+          <mesh position={[0, 0.44, 0]}>
+            <boxGeometry args={[0.88, 0.07, 1.24]} />
+            <meshStandardMaterial color="#ffd60a" roughness={0.18} />
+          </mesh>
+        </group>
+
+        {/* ── Hammer Head B (negative X end, mirrored) ── */}
+        <group position={[-armHalf, 1.2, 0]}>
+          <CuboidCollider args={[0.42, 0.42, 0.6]} />
+          <mesh castShadow>
+            <boxGeometry args={[0.84, 0.84, 1.2]} />
+            <meshStandardMaterial color={color} roughness={0.12} metalness={0.25} />
+          </mesh>
+          <mesh position={[0, 0, -0.65]}>
+            <cylinderGeometry args={[0.36, 0.36, 0.07, 22]} />
+            <meshStandardMaterial color="#ffffff" roughness={0.04} metalness={0.7} />
+          </mesh>
+          <mesh position={[0, 0, -0.72]}>
+            <sphereGeometry args={[0.38, 18, 18]} />
+            <meshStandardMaterial color="#ffccdd" roughness={0.08} metalness={0.45} />
+          </mesh>
+          <mesh position={[0, 0.44, 0]}>
+            <boxGeometry args={[0.88, 0.07, 1.24]} />
+            <meshStandardMaterial color="#ffd60a" roughness={0.18} />
+          </mesh>
+        </group>
+      </RigidBody>
+    </group>
+  );
+};
+
 
 // Windmill Obstacle (stands vertically, spins in X-Y plane)
+
 interface WindmillProps {
   position: [number, number, number];
   speed: number;
@@ -1819,3 +2001,302 @@ export const CandyMountain: React.FC<CandyMountainProps> = ({ position, radius, 
     </group>
   );
 };
+
+// ─── StartLine ────────────────────────────────────────────────────────────────
+// Painted START floor marking + checkered tiles + race gantry arch
+
+interface StartLineProps {
+  position: [number, number, number];
+  width?: number;  // total width of course
+}
+
+export const StartLine: React.FC<StartLineProps> = ({
+  position,
+  width = 12,
+}) => {
+  const tileCount = 8; // tiles across width
+  const tileSize = width / tileCount;
+  const TILES_DEEP = 2; // rows of checker
+
+  const tiles = useMemo(() => {
+    const out: { x: number; z: number; white: boolean }[] = [];
+    for (let row = 0; row < TILES_DEEP; row++) {
+      for (let col = 0; col < tileCount; col++) {
+        const white = (row + col) % 2 === 0;
+        const x = -width / 2 + tileSize * col + tileSize / 2;
+        const z = -tileSize * TILES_DEEP / 2 + tileSize * row + tileSize / 2;
+        out.push({ x, z, white });
+      }
+    }
+    return out;
+  }, [width, tileCount, tileSize]);
+
+  return (
+    <group position={position}>
+      {/* ── Checkered tile strip ── */}
+      {tiles.map((t, i) => (
+        <mesh key={i} position={[t.x, 0.005, t.z]} receiveShadow>
+          <boxGeometry args={[tileSize - 0.015, 0.012, tileSize - 0.015]} />
+          <meshStandardMaterial
+            color={t.white ? '#ffffff' : '#111111'}
+            roughness={0.15}
+            metalness={0.2}
+          />
+        </mesh>
+      ))}
+
+
+
+      {/* ── Left gantry pillar ── */}
+      <mesh castShadow position={[-width / 2 - 0.3, 1.5, 0]}>
+        <cylinderGeometry args={[0.22, 0.26, 3.0, 16]} />
+        <meshStandardMaterial color="#ff007f" roughness={0.18} metalness={0.4}
+          emissive="#ff007f" emissiveIntensity={0.25} />
+      </mesh>
+      {/* Left pillar base disc */}
+      <mesh position={[-width / 2 - 0.3, 0.04, 0]}>
+        <cylinderGeometry args={[0.42, 0.46, 0.08, 16]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.2} metalness={0.5} />
+      </mesh>
+      {/* Left pillar cap sphere */}
+      <mesh position={[-width / 2 - 0.3, 3.12, 0]}>
+        <sphereGeometry args={[0.28, 16, 16]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.12} metalness={0.55}
+          emissive="#ffd60a" emissiveIntensity={0.4} />
+      </mesh>
+
+      {/* ── Right gantry pillar ── */}
+      <mesh castShadow position={[width / 2 + 0.3, 1.5, 0]}>
+        <cylinderGeometry args={[0.22, 0.26, 3.0, 16]} />
+        <meshStandardMaterial color="#00e5ff" roughness={0.18} metalness={0.4}
+          emissive="#00e5ff" emissiveIntensity={0.25} />
+      </mesh>
+      <mesh position={[width / 2 + 0.3, 0.04, 0]}>
+        <cylinderGeometry args={[0.42, 0.46, 0.08, 16]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.2} metalness={0.5} />
+      </mesh>
+      <mesh position={[width / 2 + 0.3, 3.12, 0]}>
+        <sphereGeometry args={[0.28, 16, 16]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.12} metalness={0.55}
+          emissive="#ffd60a" emissiveIntensity={0.4} />
+      </mesh>
+
+      {/* ── Horizontal arch bar ── */}
+      <mesh castShadow position={[0, 3.0, 0]}>
+        <boxGeometry args={[width + 1.2, 0.38, 0.38]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.16} metalness={0.45}
+          emissive="#ffd60a" emissiveIntensity={0.2} />
+      </mesh>
+
+      {/* ── Flag banners on arch ── */}
+      {[-4.5, -1.5, 1.5, 4.5].map((x, i) => (
+        <group key={i} position={[x, 3.18, 0]}>
+          <mesh castShadow position={[0, -0.35, 0]}>
+            <boxGeometry args={[0.6, 0.7, 0.04]} />
+            <meshStandardMaterial
+              color={i % 2 === 0 ? '#ff007f' : '#00e5ff'}
+              roughness={0.2} metalness={0.1}
+              emissive={i % 2 === 0 ? '#ff007f' : '#00e5ff'}
+              emissiveIntensity={0.25}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ── Emissive light pods (decorative) ── */}
+      {[-5.0, 5.0].map((x, i) => (
+        <mesh key={`light-${i}`} position={[x, 3.22, 0]}>
+          <sphereGeometry args={[0.14, 12, 12]} />
+          <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={3.0}
+            roughness={0.0} metalness={0.0} />
+        </mesh>
+      ))}
+
+      {/* ── Thin red start line stripe across full width ── */}
+      <mesh position={[0, 0.013, -tileSize * TILES_DEEP / 2 - 0.06]}>
+        <boxGeometry args={[width, 0.014, 0.12]} />
+        <meshStandardMaterial color="#ff0000" roughness={0.15} emissive="#ff0000" emissiveIntensity={0.5} />
+      </mesh>
+    </group>
+  );
+};
+
+// ─── GoalLine ─────────────────────────────────────────────────────────────────
+// GOAL floor text + checkered tiles + celebration arch + balloons + confetti
+
+interface GoalLineProps {
+  position: [number, number, number];
+  width?: number;
+}
+
+export const GoalLine: React.FC<GoalLineProps> = ({
+  position,
+  width = 14,
+}) => {
+  const tileCount = 8;
+  const tileSize = width / tileCount;
+  const TILES_DEEP = 3;
+
+  const tiles = useMemo(() => {
+    const out: { x: number; z: number; white: boolean }[] = [];
+    for (let row = 0; row < TILES_DEEP; row++) {
+      for (let col = 0; col < tileCount; col++) {
+        const white = (row + col) % 2 === 0;
+        const x = -width / 2 + tileSize * col + tileSize / 2;
+        const z = -tileSize * TILES_DEEP / 2 + tileSize * row + tileSize / 2;
+        out.push({ x, z, white });
+      }
+    }
+    return out;
+  }, [width, tileCount, tileSize]);
+
+  // Slowly bouncing balloons
+  const balloonData = useMemo(() => [
+    { x: -5.5, y: 4.5, z: -0.8, color: '#ff007f', speed: 0.8, amp: 0.22 },
+    { x: -3.5, y: 5.5, z: 0.6,  color: '#ffd60a', speed: 1.1, amp: 0.18 },
+    { x: 0.0,  y: 6.2, z: -0.3, color: '#00e5ff', speed: 0.65, amp: 0.25 },
+    { x: 3.5,  y: 5.0, z: 0.7,  color: '#ff007f', speed: 0.9, amp: 0.2 },
+    { x: 5.5,  y: 4.8, z: -0.5, color: '#ffd60a', speed: 1.05, amp: 0.15 },
+  ], []);
+
+  const balloonRefs = useRef<(THREE.Mesh | null)[]>([]);
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+    balloonData.forEach((b, i) => {
+      const ref = balloonRefs.current[i];
+      if (ref) {
+        ref.position.y = b.y + Math.sin(t * b.speed + i) * b.amp;
+      }
+    });
+  });
+
+  return (
+    <group position={position}>
+      {/* ── Wide checkered tile strip ── */}
+      {tiles.map((t, i) => (
+        <mesh key={i} position={[t.x, 0.005, t.z]} receiveShadow>
+          <boxGeometry args={[tileSize - 0.015, 0.012, tileSize - 0.015]} />
+          <meshStandardMaterial
+            color={t.white ? '#ffffff' : '#111111'}
+            roughness={0.12}
+            metalness={0.25}
+          />
+        </mesh>
+      ))}
+
+
+
+      {/* ── Left arch pillar ── */}
+      <mesh castShadow position={[-width / 2 - 0.3, 2.0, 0]}>
+        <cylinderGeometry args={[0.26, 0.3, 4.0, 18]} />
+        <meshStandardMaterial color="#ff007f" roughness={0.16} metalness={0.4}
+          emissive="#ff007f" emissiveIntensity={0.3} />
+      </mesh>
+      <mesh position={[-width / 2 - 0.3, 0.04, 0]}>
+        <cylinderGeometry args={[0.48, 0.52, 0.08, 18]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.2} metalness={0.5} />
+      </mesh>
+      <mesh position={[-width / 2 - 0.3, 4.18, 0]}>
+        <sphereGeometry args={[0.34, 16, 16]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.1} metalness={0.6}
+          emissive="#ffd60a" emissiveIntensity={0.5} />
+      </mesh>
+
+      {/* ── Right arch pillar ── */}
+      <mesh castShadow position={[width / 2 + 0.3, 2.0, 0]}>
+        <cylinderGeometry args={[0.26, 0.3, 4.0, 18]} />
+        <meshStandardMaterial color="#00e5ff" roughness={0.16} metalness={0.4}
+          emissive="#00e5ff" emissiveIntensity={0.3} />
+      </mesh>
+      <mesh position={[width / 2 + 0.3, 0.04, 0]}>
+        <cylinderGeometry args={[0.48, 0.52, 0.08, 18]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.2} metalness={0.5} />
+      </mesh>
+      <mesh position={[width / 2 + 0.3, 4.18, 0]}>
+        <sphereGeometry args={[0.34, 16, 16]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.1} metalness={0.6}
+          emissive="#ffd60a" emissiveIntensity={0.5} />
+      </mesh>
+
+      {/* ── Arch cross-bar ── */}
+      <mesh castShadow position={[0, 4.1, 0]}>
+        <boxGeometry args={[width + 1.6, 0.5, 0.45]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.14} metalness={0.48}
+          emissive="#ffd60a" emissiveIntensity={0.28} />
+      </mesh>
+
+      {/* ── "GOAL" banner on arch bar front face (faces approaching player) ── */}
+      {/* Player approaches from -Z toward +Z; rotation [0,PI,0] makes text face -Z */}
+      <Text
+        position={[0, 4.08, -0.26]}
+        rotation={[0, Math.PI, 0]}
+        fontSize={0.72}
+        color="#ff007f"
+        outlineColor="#000000"
+        outlineWidth={0.048}
+        anchorX="center"
+        anchorY="middle"
+        castShadow={false}
+      >
+        GOAL
+      </Text>
+
+      {/* ── Celebration flag banners on arch ── */}
+      {[-5.5, -2.8, 0, 2.8, 5.5].map((x, i) => (
+        <group key={i} position={[x, 4.35, 0]}>
+          <mesh castShadow position={[0, -0.4, 0]}>
+            <boxGeometry args={[0.7, 0.8, 0.04]} />
+            <meshStandardMaterial
+              color={['#ff007f', '#ffd60a', '#00e5ff', '#ffd60a', '#ff007f'][i]}
+              roughness={0.18} metalness={0.1}
+              emissive={['#ff007f', '#ffd60a', '#00e5ff', '#ffd60a', '#ff007f'][i]}
+              emissiveIntensity={0.3}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ── Glowing light pods on arch ── */}
+      {[-6.0, -3.0, 0, 3.0, 6.0].map((x, i) => (
+        <mesh key={`pod-${i}`} position={[x, 4.42, 0]}>
+          <sphereGeometry args={[0.16, 12, 12]} />
+          <meshStandardMaterial
+            color={i % 2 === 0 ? '#ff007f' : '#ffd60a'}
+            emissive={i % 2 === 0 ? '#ff007f' : '#ffd60a'}
+            emissiveIntensity={4.0}
+            roughness={0.0}
+          />
+        </mesh>
+      ))}
+
+      {/* ── Floating balloons ── */}
+      {balloonData.map((b, i) => (
+        <group key={`balloon-${i}`}>
+          <mesh
+            ref={(el) => { balloonRefs.current[i] = el; }}
+            castShadow
+            position={[b.x, b.y, b.z]}
+          >
+            <sphereGeometry args={[0.38, 16, 16]} />
+            <meshStandardMaterial color={b.color} roughness={0.15} metalness={0.1}
+              emissive={b.color} emissiveIntensity={0.3} />
+          </mesh>
+          {/* String */}
+          <mesh position={[b.x, b.y - 0.75, b.z]}>
+            <cylinderGeometry args={[0.012, 0.012, 1.5, 6]} />
+            <meshStandardMaterial color="#cccccc" roughness={0.8} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ── Yellow GOAL stripe across full width ── */}
+      <mesh position={[0, 0.013, -tileSize * TILES_DEEP / 2 - 0.06]}>
+        <boxGeometry args={[width, 0.014, 0.14]} />
+        <meshStandardMaterial color="#ffd60a" roughness={0.1}
+          emissive="#ffd60a" emissiveIntensity={0.7} />
+      </mesh>
+    </group>
+  );
+};
+

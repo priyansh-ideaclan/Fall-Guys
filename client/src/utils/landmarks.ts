@@ -29,10 +29,10 @@ export const LEVEL_1_LANDMARKS: LandmarkConfig[] = [
   { pos: [0.0, 1.05, 47.0], section: 'Jump Pad Launch' },         // LM 23
   { pos: [0.0, 7.5, 51.5], section: 'Sky Storey Ascent' },        // LM 24
   { pos: [0.0, 7.5, 54.0], section: 'Sky Storey High Deck' },      // LM 25
-  { pos: [-3.5, 8.3, 61.0], section: 'Sky Storey Ice Deck' },      // LM 26
-  { pos: [3.5, 9.1, 64.0], section: 'Windmill Bridge Entrance' },  // LM 27
-  { pos: [3.5, 9.1, 67.0], section: 'Windmill Bridge Exit' },      // LM 28
-  { pos: [0.0, 10.7, 72.0], section: 'Checkpoint 3' },            // LM 29
+  { pos: [0.0, 8.3, 61.0], section: 'Windmill Crossing' },         // LM 26
+  { pos: [0.0, 9.5, 65.5], section: 'Spinning Hammer Intro' },     // LM 27
+  { pos: [0.0, 9.5, 69.5], section: 'Hammer Arena Center' },       // LM 28
+  { pos: [0.0, 8.7, 76.5], section: 'Checkpoint 3' },             // LM 29
   { pos: [-5.0, 7.8, 81.0], section: 'Left Water Slide' },         // LM 30
   { pos: [0.0, 7.8, 81.0], section: 'Middle Rainbow Slide' },      // LM 31
   { pos: [5.0, 7.8, 81.0], section: 'Right Ice Slide' },           // LM 32
