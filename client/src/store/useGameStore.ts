@@ -1,6 +1,30 @@
 import { create } from 'zustand';
 import { generateBotNames } from '../utils/botNames';
 
+function computeSurvivalWinners(
+  activeBots: BotRacer[],
+  eliminationOrder: string[],
+  racerProgress: Record<string, RacerProgress>,
+  playerAlive: boolean
+): string[] {
+  const survivors = [
+    ...(playerAlive ? ['player'] : []),
+    ...activeBots.map(b => b.id)
+  ];
+  
+  // Sort survivors by distanceToCenter (ascending)
+  survivors.sort((a, b) => {
+    const distA = racerProgress[a]?.distanceToCenter ?? 999;
+    const distB = racerProgress[b]?.distanceToCenter ?? 999;
+    return distA - distB;
+  });
+
+  // Eliminated in reverse order (last to die gets highest rank)
+  const eliminated = [...eliminationOrder].reverse();
+
+  return [...survivors, ...eliminated];
+}
+
 export type GamePhase = 'MENU' | 'ROUND_INTRO' | 'PLAYING' | 'QUALIFIED' | 'ROUND_OUTCOME' | 'GAMEOVER' | 'VICTORY';
 export type VisualTheme = 'SKY_BLUE' | 'SUNSET_ORANGE' | 'PURPLE_NEON' | 'CANDY_LAND' | 'SPACE';
 export type LevelType = 'RACE' | 'SURVIVAL' | 'LOGIC' | 'HUNT' | 'FINAL';
@@ -13,6 +37,8 @@ export interface RacerProgress {
   score: number;       // Hunt star/crystal points
   finished: boolean;
   finishTime?: number;
+  distanceToCenter?: number;
+  survivalDuration?: number;
 }
 
 export interface PlayerCustomization {
@@ -51,6 +77,7 @@ interface GameState {
   scores: Record<string, number>; // Used for Hunt collections
   activeColorPattern: string; // Used for memory logic blocks
   winnersList: string[]; // List of racer IDs that qualified this round
+  eliminationOrder: string[]; // Order of racer IDs eliminated this round
   activeBots: BotRacer[]; // Surviving bots in the tournament
   botQualifyingLimit: number;
   playerQualified: boolean;
@@ -242,6 +269,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   scores: {},
   activeColorPattern: 'RED',
   winnersList: [],
+  eliminationOrder: [],
   activeBots: [],
   botQualifyingLimit: 8,
   playerQualified: false,
@@ -389,6 +417,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       botQualifyingLimit: 6, // Top 6 qualify (for 6 players in Round 2)
       playerQualified: false,
       winnersList: [],
+      eliminationOrder: [],
       scores: {},
       racerProgress: {},
       lastCheckpoint: spawnPoint,
@@ -486,24 +515,50 @@ export const useGameStore = create<GameState>((set, get) => ({
   eliminateRacer: (id) => set((state) => {
     if (state.phase !== 'PLAYING') return {};
 
+    const now = Date.now();
+    const elapsed = state.startTime ? (now - state.startTime) / 1000 : 0;
+    
+    // Track elimination order
+    const nextEliminationOrder = state.eliminationOrder.includes(id)
+      ? state.eliminationOrder
+      : [...state.eliminationOrder, id];
+
+    // Update progress
+    const currentProg = state.racerProgress[id];
+    const nextProg = currentProg
+      ? { ...currentProg, finished: true, finishTime: now, survivalDuration: elapsed }
+      : { id, name: id === 'player' ? (state.playerName || 'You') : id, progressValue: 0, yPos: 0, score: 0, finished: true, finishTime: now, survivalDuration: elapsed };
+    const nextProgress = { ...state.racerProgress, [id]: nextProg };
+
     if (id === 'player') {
       const isSurvival = state.currentLevelId === 'survival_1' || state.currentLevelId === 'survival_2';
       if (isSurvival) {
         const totalRemainingBots = state.activeBots.length;
         if (totalRemainingBots <= (state.currentLevelId === 'survival_2' ? 1 : 0)) {
+          let finalWinners: string[] = [];
+          if (state.currentLevelId === 'survival_1') {
+            finalWinners = computeSurvivalWinners([], nextEliminationOrder, nextProgress, false);
+          }
           return {
             isPlayerEliminated: true,
+            eliminationOrder: nextEliminationOrder,
+            racerProgress: nextProgress,
+            winnersList: finalWinners,
             phase: 'GAMEOVER',
             failures: state.failures + 1
           };
         }
         return {
-          isPlayerEliminated: true
+          isPlayerEliminated: true,
+          eliminationOrder: nextEliminationOrder,
+          racerProgress: nextProgress,
         };
       }
       return {
         phase: 'GAMEOVER',
-        failures: state.failures + 1
+        failures: state.failures + 1,
+        eliminationOrder: nextEliminationOrder,
+        racerProgress: nextProgress,
       };
     }
 
@@ -514,16 +569,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.currentLevelId === 'survival_1') {
       const playerAlive = !state.isPlayerEliminated;
       if (nextBots.length === 0 && !playerAlive) {
+        const finalWinners = computeSurvivalWinners(nextBots, nextEliminationOrder, nextProgress, false);
         return {
           activeBots: nextBots,
           eliminatedBots: nextEliminated,
+          eliminationOrder: nextEliminationOrder,
+          racerProgress: nextProgress,
+          winnersList: finalWinners,
           phase: 'GAMEOVER',
           failures: state.failures + 1
         };
       }
       return {
         activeBots: nextBots,
-        eliminatedBots: nextEliminated
+        eliminatedBots: nextEliminated,
+        eliminationOrder: nextEliminationOrder,
+        racerProgress: nextProgress,
       };
     }
 
@@ -537,6 +598,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           return {
             activeBots: nextBots,
             eliminatedBots: nextEliminated,
+            eliminationOrder: nextEliminationOrder,
+            racerProgress: nextProgress,
             playerQualified: true,
             winnersList: ['player'],
             phase: nextPhase,
@@ -546,6 +609,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           return {
             activeBots: nextBots,
             eliminatedBots: nextEliminated,
+            eliminationOrder: nextEliminationOrder,
+            racerProgress: nextProgress,
             phase: 'GAMEOVER',
             failures: state.failures + 1
           };
@@ -554,6 +619,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {
           activeBots: nextBots,
           eliminatedBots: nextEliminated,
+          eliminationOrder: nextEliminationOrder,
+          racerProgress: nextProgress,
           phase: 'GAMEOVER',
           failures: state.failures + 1
         };
@@ -563,6 +630,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     return {
       activeBots: nextBots,
       eliminatedBots: nextEliminated,
+      eliminationOrder: nextEliminationOrder,
+      racerProgress: nextProgress,
     };
   }),
 
@@ -604,6 +673,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       activeBots: nextBots,
       playerQualified: false,
       winnersList: [],
+      eliminationOrder: [],
       scores: {},
       racerProgress: {},
       eliminatedBots: [],
@@ -716,10 +786,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             } else {
               // Everyone still in the arena qualifies!
               const playerOk = !get().isPlayerEliminated;
-              const botIds = activeBots.map(b => b.id);
+              const finalWinners = computeSurvivalWinners(activeBots, get().eliminationOrder, get().racerProgress, playerOk);
               set({
                 playerQualified: playerOk,
-                winnersList: playerOk ? [...winnersList, 'player', ...botIds] : botIds,
+                winnersList: finalWinners,
                 phase: playerOk ? 'ROUND_OUTCOME' : 'GAMEOVER',
                 failures: playerOk ? get().failures : get().failures + 1,
               });

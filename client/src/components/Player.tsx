@@ -297,6 +297,7 @@ export const Player: React.FC = () => {
       yPos: pos.y,
       score: scores['player'] || 0,
       finished: playerQualified,
+      distanceToCenter: Math.sqrt(pos.x * pos.x + pos.z * pos.z),
     });
 
     // Update name label opacity based on camera distance

@@ -31,12 +31,12 @@ const ACCESSORIES = [
 ];
 
 export const MainMenu: React.FC = () => {
-  const { 
-    phase, 
+  const {
+    phase,
     startGame,
-    customization, 
-    updateCustomization, 
-    wins, 
+    customization,
+    updateCustomization,
+    wins,
     failures,
     currentLevelIndex,
     maxLevelUnlocked,
@@ -44,12 +44,8 @@ export const MainMenu: React.FC = () => {
     masterVolume,
     musicVolume,
     sfxVolume,
-    weatherVolume,
-    uiVolume,
     musicMuted,
     sfxMuted,
-    weatherMuted,
-    uiMuted,
     setVolume,
     toggleMute,
     playerName,
@@ -126,13 +122,13 @@ export const MainMenu: React.FC = () => {
                 textDecoration: 'underline',
                 fontFamily: 'inherit',
               }}
-              title="Change your racer name"
+              title="Change your name"
             >
               change
             </button>
           </div>
           <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.9rem', margin: '0 0 16px 0' }}>
-            Handcrafted courses, sliding ice fields, slowing mud, and high-performance competitive AI bots. Race, jump, and dive to grab the crown!
+            Race. Survive. Outlast. Conquer handcrafted courses, spinning arenas, and disappearing hex platforms against competitive AI bots!
           </p>
         </div>
 
@@ -143,13 +139,13 @@ export const MainMenu: React.FC = () => {
               Select Round
             </span>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700, color: unlockAllLevels ? '#ffd60a' : 'rgba(255,255,255,0.5)', transition: 'color 0.2s' }}>
-              <input 
-                type="checkbox" 
-                checked={unlockAllLevels} 
+              <input
+                type="checkbox"
+                checked={unlockAllLevels}
                 onChange={(e) => {
                   setUnlockAllLevels(e.target.checked);
                   audioManager.playClick();
-                }} 
+                }}
                 style={{ cursor: 'pointer', margin: 0, accentColor: '#ffd60a' }}
               />
               🔓 Unlock All Rounds
@@ -239,13 +235,13 @@ export const MainMenu: React.FC = () => {
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     border: '1px solid',
-                    borderColor: gameDifficulty === diff 
+                    borderColor: gameDifficulty === diff
                       ? (diff === 'EASY' ? '#39ff14' : diff === 'HARD' ? '#ff0055' : 'var(--secondary)')
                       : 'var(--glass-border)',
-                    background: gameDifficulty === diff 
+                    background: gameDifficulty === diff
                       ? (diff === 'EASY' ? 'rgba(57, 255, 20, 0.08)' : diff === 'HARD' ? 'rgba(255, 0, 85, 0.08)' : 'rgba(0, 229, 255, 0.08)')
                       : 'var(--glass-bg)',
-                    color: gameDifficulty === diff 
+                    color: gameDifficulty === diff
                       ? (diff === 'EASY' ? '#39ff14' : diff === 'HARD' ? '#ff0055' : '#00e5ff')
                       : 'rgba(255, 255, 255, 0.6)',
                   }}
@@ -267,7 +263,7 @@ export const MainMenu: React.FC = () => {
 
       {/* Right Column: Customization & Audio Settings */}
       <div style={{ borderLeft: '1px solid var(--glass-border)', paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
+
         {/* Customization */}
         <div>
           <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 800, color: 'rgba(255,255,255,0.9)' }}>
@@ -370,29 +366,6 @@ export const MainMenu: React.FC = () => {
               />
             </div>
 
-            {/* Weather Volume */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
-                <span>Weather Ambience</span>
-                <button
-                  onClick={() => toggleMute('weather')}
-                  style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.7rem', cursor: 'pointer', padding: 0 }}
-                >
-                  {weatherMuted ? 'Unmute Ambience 🔇' : 'Mute Ambience 🔊'}
-                </button>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1.0"
-                step="0.05"
-                value={weatherVolume}
-                disabled={weatherMuted}
-                onChange={(e) => handleVolumeChange('weather', parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--secondary)', cursor: 'pointer', opacity: weatherMuted ? 0.3 : 1 }}
-              />
-            </div>
-
             {/* SFX Volume */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
@@ -420,29 +393,6 @@ export const MainMenu: React.FC = () => {
                 disabled={sfxMuted}
                 onChange={(e) => handleVolumeChange('sfx', parseFloat(e.target.value))}
                 style={{ width: '100%', accentColor: 'var(--yellow)', cursor: 'pointer', opacity: sfxMuted ? 0.3 : 1 }}
-              />
-            </div>
-
-            {/* UI Volume */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
-                <span>UI Click Volume</span>
-                <button
-                  onClick={() => toggleMute('ui')}
-                  style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.7rem', cursor: 'pointer', padding: 0 }}
-                >
-                  {uiMuted ? 'Unmute UI 🔇' : 'Mute UI 🔊'}
-                </button>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1.0"
-                step="0.05"
-                value={uiVolume}
-                disabled={uiMuted}
-                onChange={(e) => handleVolumeChange('ui', parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--secondary)', cursor: 'pointer', opacity: uiMuted ? 0.3 : 1 }}
               />
             </div>
 

@@ -16,11 +16,13 @@ export const INITIAL_PLAYLIST: TrackInfo[] = [
   { id: 3, title: 'Without Me', artist: 'Eminem', file: '/assets/music/Without Me [tqxRidAWER8].mp3', duration: 290 },
   { id: 4, title: 'Victory Lap Five', artist: 'Fred again..', file: '/assets/music/Victory Lap Five [0wRYvsfhsR8].mp3', duration: 278 },
   { id: 5, title: 'Low (feat. T-Pain)', artist: 'Flo Rida', file: '/assets/music/Flo Rida - Low (feat. T-Pain).mp3', duration: 230 },
-  { id: 6, title: 'Hands In The Air', artist: 'Timbaland feat. Ne-Yo', file: '/assets/music/Hands In The Air [Sh1x5iKJ36k].mp3', duration: 240 },
-  { id: 7, title: 'Him & I', artist: 'G-Eazy & Halsey', file: '/assets/music/Him & I [NdSJ1pyaAH8].mp3', duration: 268 },
-  { id: 8, title: 'Inside the Fire', artist: 'Disturbed', file: '/assets/music/Inside the Fire [2Q1SxzEBhnc].mp3', duration: 232 },
-  { id: 9, title: 'Killer (Remix)', artist: 'Eminem', file: '/assets/music/Killer (Remix) [cPwC1uks0w4].mp3', duration: 224 },
-  { id: 10, title: 'All My Time', artist: 'Pozle', file: '/assets/music/all my time [88Hr8FS86h0].mp3', duration: 130 },
+  { id: 6, title: 'Him & I', artist: 'G-Eazy & Halsey', file: '/assets/music/Him & I [NdSJ1pyaAH8].mp3', duration: 268 },
+  { id: 7, title: 'Inside the Fire', artist: 'Disturbed', file: '/assets/music/Inside the Fire [2Q1SxzEBhnc].mp3', duration: 232 },
+  { id: 8, title: 'Killer (Remix)', artist: 'Eminem', file: '/assets/music/Killer (Remix) [cPwC1uks0w4].mp3', duration: 224 },
+  { id: 9, title: 'Alive', artist: 'Alok & Zedd', file: '/assets/music/Alive [Y0ZCbKKaJYY].mp3', duration: 140 },
+  { id: 10, title: '24K Magic', artist: 'Bruno Mars', file: '/assets/music/Bruno Mars - 24K Magic.mp3', duration: 226 },
+  { id: 11, title: 'Moves Like Jagger', artist: 'Maroon 5 feat. Christina Aguilera', file: '/assets/music/Maroon 5 - Moves Like Jagger (Studio Recording From _The Voice_ Performance) (feat. Christina Aguilera) - (128 Kbps).mp3', duration: 201 },
+  { id: 12, title: "I Ain't Worried", artist: 'OneRepublic', file: '/assets/music/OneRepublic - I Ain t Worried.mp3', duration: 148 },
 ];
 
 interface MusicState {

@@ -591,11 +591,6 @@ export const HUD: React.FC = () => {
               <div>RND <span style={{ color: modeColor, fontWeight: 800 }}>{currentRound}/4</span></div>
               <div>FPS <span style={{ color: 'var(--yellow)', fontWeight: 800 }}>{fps}</span></div>
             </div>
-
-            {/* Mute button */}
-            <button className="ui-interactive glass-panel" onClick={() => toggleMute('music')} style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid var(--glass-border)', background: 'var(--glass-bg)', height: '46px', boxSizing: 'border-box' }}>
-              {musicMuted ? <VolumeX size={16} color="var(--primary)" /> : <Volume2 size={16} color="var(--secondary)" />}
-            </button>
           </div>
         </div>
       )}

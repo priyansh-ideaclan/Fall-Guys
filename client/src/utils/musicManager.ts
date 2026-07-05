@@ -23,6 +23,19 @@ class MusicManager {
     // Listen to changes in the music store
     useMusicStore.subscribe((state, prevState) => {
       // Handle Enable Music toggle
+      if (state.enableMusic !== prevState.enableMusic) {
+        if (state.enableMusic) {
+          if (state.isPlaying) {
+            this.resume();
+          } else {
+            this.playTrack(state.playlist[state.currentTrackIndex]);
+          }
+        } else {
+          this.pause();
+        }
+        return;
+      }
+
       if (!state.enableMusic) {
         this.pause();
         return;

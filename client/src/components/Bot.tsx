@@ -362,6 +362,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       yPos: pos.y,
       score: scores[id] || 0,
       finished: isQualified,
+      distanceToCenter: Math.sqrt(pos.x * pos.x + pos.z * pos.z),
     });
 
     // Update name label scale and opacity based on camera distance to avoid clutter
@@ -844,6 +845,14 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       steerDir.subVectors(targetPos, new THREE.Vector3(pos.x, pos.y, pos.z));
       steerDir.y = 0;
       steerDir.normalize();
+
+      // Apply difficulty-based centering correction to counter platform tilting/sliding
+      const distToCenter = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+      if (distToCenter > 4.2) {
+        const recoveryPull = difficulty === 'EASY' ? 0.18 : difficulty === 'MEDIUM' ? 0.65 : 1.35;
+        const toCenter = new THREE.Vector3(-pos.x, 0, -pos.z).normalize();
+        steerDir.addScaledVector(toCenter, recoveryPull).normalize();
+      }
 
     } else if (currentLevelId === 'logic_1') {
       // Memory color blocks

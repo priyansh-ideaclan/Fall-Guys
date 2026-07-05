@@ -369,7 +369,20 @@ export const Survival1: React.FC = () => {
         }
       }
 
-      const qPlat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), platformAngle.current);
+      // Platform dynamic wobble, tilt, and shake scaled by difficulty and match progress
+      const tiltMult = difficulty === 'EASY' ? 0.5 : difficulty === 'MEDIUM' ? 1.0 : 1.5;
+      const time = state.clock.getElapsedTime();
+      const progressIntensity = Math.min(1.0, playTime.current / 45.0); // ramp up intensity over 45s
+
+      // Wobble angles on X and Z
+      const tiltX = Math.sin(time * 1.3) * 0.045 * tiltMult * progressIntensity;
+      const tiltZ = Math.cos(time * 1.6) * 0.045 * tiltMult * progressIntensity;
+
+      // High-frequency shake/vibration
+      const shakeVal = Math.sin(time * 28.0) * 0.004 * tiltMult * progressIntensity;
+
+      const euler = new THREE.Euler(tiltX + shakeVal, platformAngle.current, tiltZ + shakeVal);
+      const qPlat = new THREE.Quaternion().setFromEuler(euler);
       plat.setNextKinematicRotation(qPlat);
     }
 
