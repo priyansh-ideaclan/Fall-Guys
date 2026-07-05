@@ -57,6 +57,10 @@ interface GameState {
   cinematicActive: boolean;
   isPlayerEliminated: boolean;
 
+  // Spectator Mode
+  isSpectating: boolean;
+  spectatingBotId: string | null;
+
   // Legacy campaign variables
   currentLevelIndex: number;
   maxLevelUnlocked: number;
@@ -138,6 +142,13 @@ interface GameState {
   botsEnabled: boolean;
   toggleBots: () => void;
   triggerSplash: (position: [number, number, number], color?: string) => void;
+
+  // Spectator actions
+  enterSpectatorMode: () => void;
+  exitSpectatorMode: () => void;
+  spectateNext: () => void;
+  spectatePrev: () => void;
+  setSpectatingBotId: (id: string) => void;
 }
 
 const THEMES: VisualTheme[] = ['SKY_BLUE', 'SUNSET_ORANGE', 'PURPLE_NEON', 'CANDY_LAND', 'SPACE'];
@@ -146,7 +157,6 @@ const THEMES: VisualTheme[] = ['SKY_BLUE', 'SUNSET_ORANGE', 'PURPLE_NEON', 'CAND
 const SPAWN_POINTS: Record<string, [number, number, number]> = {
   'race_1': [0, 0.4, 0],
   'survival_1': [0, 1.2, 5.5],
-  'logic_1': [0, 0.4, -5.8],
   'survival_2': [0, 8.5, 2.4],
 };
 
@@ -163,12 +173,12 @@ const getStoredBoolean = (key: string, fallback: boolean): boolean => {
 // Available levels by category
 const RACE_LEVELS = ['race_1'];
 const SURVIVAL_LEVELS = ['survival_1', 'survival_2'];
-const LOGIC_LEVELS = ['logic_1'];
+const LOGIC_LEVELS: string[] = [];
 const HUNT_LEVELS: string[] = [];
 const FINAL_LEVELS: string[] = [];
 
-// Fixed 4-round tournament progression
-// Round: 1=Race, 2=Survival, 3=Logic, 4=Survival (Final Showdown)
+// Fixed 3-round tournament progression
+// Round: 1=Race (Beginner Bounds), 2=Survival (Spinning Cyclone), 3=Hex (Hex-A-Terrestrial, Final Showdown)
 const ROUND_PROGRESSION: Array<{
   levelId: string;
   type: LevelType;
@@ -180,7 +190,7 @@ const ROUND_PROGRESSION: Array<{
   {
     levelId: 'race_1',
     type: 'RACE',
-    objective: 'Reach the finish line before slots fill up!',
+    objective: 'Beginner Bounds: Dash to the finish line across see-saws, wind blowers, and sliding beams!',
     maxPlayers: 12,
     qualifyLimit: 6,
     timeLimit: 0,
@@ -188,31 +198,23 @@ const ROUND_PROGRESSION: Array<{
   {
     levelId: 'survival_1',
     type: 'SURVIVAL',
-    objective: 'Jungle Spin Out: Stay alive on the rotating jungle platform and dodge the dual spinning logs!',
+    objective: 'Spinning Cyclone: Dodge the spinning log sweeps and stay on the rotating platform!',
     maxPlayers: 10,
     qualifyLimit: 5,
-    timeLimit: 38,
-  },
-  {
-    levelId: 'logic_1',
-    type: 'LOGIC',
-    objective: 'Stand on the correct color tile before the wrong ones drop!',
-    maxPlayers: 8,
-    qualifyLimit: 5,
-    timeLimit: 42,
+    timeLimit: 40,
   },
   {
     levelId: 'survival_2',
-    type: 'SURVIVAL',
-    objective: 'Last player standing wins! The floor collapses beneath your feet!',
+    type: 'FINAL',
+    objective: 'Hex-A-Terrestrial: Run, jump, and stay alive as the hexagonal tiles disintegrate beneath your feet!',
     maxPlayers: 8,
-    qualifyLimit: 3,
+    qualifyLimit: 1, // Final round, only 1 winner!
     timeLimit: 90,
   },
 ];
 
-// Map campaign level select index (0-3) to level IDs
-const CAMPAIGN_LEVEL_IDS = ['race_1', 'survival_1', 'logic_1', 'survival_2'];
+// Map campaign level select index (0-2) to level IDs
+const CAMPAIGN_LEVEL_IDS = ['race_1', 'survival_1', 'survival_2'];
 
 export const useGameStore = create<GameState>((set, get) => ({
   phase: 'MENU',
@@ -245,6 +247,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerQualified: false,
   cinematicActive: false,
   isPlayerEliminated: false,
+
+  // Spectator Mode defaults
+  isSpectating: false,
+  spectatingBotId: null,
 
   levelSeed: 0.5,
   visualTheme: 'SKY_BLUE',
@@ -391,6 +397,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       phase: 'ROUND_INTRO',
       cinematicActive: true,
       isPlayerEliminated: false,
+      isSpectating: false,
+      spectatingBotId: null,
       startTime: null,
       timeElapsed: 0,
       roundTimer: 0,
@@ -423,12 +431,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     let nextWinsCount = state.wins;
     let nextFailuresCount = state.failures;
 
-    if (!state.tournamentActive) {
-      if (isPlayer) {
-        nextPhase = 'QUALIFIED';
-        nextWinsCount += 1;
-      }
-    } else if (state.currentLevelType === 'FINAL') {
+    if (state.currentLevelType === 'FINAL') {
       if (isPlayer) {
         nextPhase = 'VICTORY';
         nextWinsCount += 1;
@@ -437,12 +440,28 @@ export const useGameStore = create<GameState>((set, get) => ({
         nextPhase = 'GAMEOVER';
         nextFailuresCount += 1;
       }
-    } else if (limitReached) {
-      nextPhase = 'ROUND_OUTCOME';
-      if (!playerOk) {
-        // Player failed to qualify!
-        nextPhase = 'GAMEOVER';
-        nextFailuresCount += 1;
+    } else if (state.currentLevelType === 'RACE') {
+      if (isPlayer) {
+        nextWinsCount += 1;
+      }
+      if (limitReached) {
+        nextPhase = playerOk ? (state.tournamentActive ? 'ROUND_OUTCOME' : 'QUALIFIED') : 'GAMEOVER';
+        if (!playerOk) {
+          nextFailuresCount += 1;
+        }
+      }
+    } else {
+      if (!state.tournamentActive) {
+        if (isPlayer) {
+          nextPhase = 'QUALIFIED';
+          nextWinsCount += 1;
+        }
+      } else if (limitReached) {
+        nextPhase = 'ROUND_OUTCOME';
+        if (!playerOk) {
+          nextPhase = 'GAMEOVER';
+          nextFailuresCount += 1;
+        }
       }
     }
 
@@ -468,9 +487,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.phase !== 'PLAYING') return {};
 
     if (id === 'player') {
-      if (state.currentLevelId === 'survival_2') {
+      const isSurvival = state.currentLevelId === 'survival_1' || state.currentLevelId === 'survival_2';
+      if (isSurvival) {
         const totalRemainingBots = state.activeBots.length;
-        if (totalRemainingBots <= 1) {
+        if (totalRemainingBots <= (state.currentLevelId === 'survival_2' ? 1 : 0)) {
           return {
             isPlayerEliminated: true,
             phase: 'GAMEOVER',
@@ -491,6 +511,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     const nextBots = state.activeBots.filter(b => b.id !== id);
     const nextEliminated = [...state.eliminatedBots, id];
 
+    if (state.currentLevelId === 'survival_1') {
+      const playerAlive = !state.isPlayerEliminated;
+      if (nextBots.length === 0 && !playerAlive) {
+        return {
+          activeBots: nextBots,
+          eliminatedBots: nextEliminated,
+          phase: 'GAMEOVER',
+          failures: state.failures + 1
+        };
+      }
+      return {
+        activeBots: nextBots,
+        eliminatedBots: nextEliminated
+      };
+    }
+
     if (state.currentLevelId === 'survival_2') {
       const playerAlive = !state.isPlayerEliminated;
       const totalRemaining = nextBots.length + (playerAlive ? 1 : 0);
@@ -510,14 +546,16 @@ export const useGameStore = create<GameState>((set, get) => ({
           return {
             activeBots: nextBots,
             eliminatedBots: nextEliminated,
-            phase: 'GAMEOVER'
+            phase: 'GAMEOVER',
+            failures: state.failures + 1
           };
         }
       } else if (totalRemaining === 0) {
         return {
           activeBots: nextBots,
           eliminatedBots: nextEliminated,
-          phase: 'GAMEOVER'
+          phase: 'GAMEOVER',
+          failures: state.failures + 1
         };
       }
     }
@@ -600,27 +638,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   triggerWin: () => {
+    get().qualifyRacer('player');
     if (!get().tournamentActive) {
-      set({
-        phase: 'QUALIFIED',
-        wins: get().wins + 1,
-        playerQualified: true,
-      });
       get().unlockNextLevel();
-    } else {
-      get().qualifyRacer('player');
     }
   },
 
   triggerLoss: () => {
-    if (!get().tournamentActive) {
-      set({
-        phase: 'GAMEOVER',
-        failures: get().failures + 1,
-      });
-    } else {
-      get().eliminateRacer('player');
-    }
+    get().eliminateRacer('player');
   },
 
   setVolume: (type, value) => set((state) => {
@@ -690,12 +715,13 @@ export const useGameStore = create<GameState>((set, get) => ({
               });
             } else {
               // Everyone still in the arena qualifies!
-              const playerOk = true; // Player survived!
+              const playerOk = !get().isPlayerEliminated;
               const botIds = activeBots.map(b => b.id);
               set({
                 playerQualified: playerOk,
-                winnersList: [...winnersList, 'player', ...botIds],
-                phase: 'ROUND_OUTCOME',
+                winnersList: playerOk ? [...winnersList, 'player', ...botIds] : botIds,
+                phase: playerOk ? 'ROUND_OUTCOME' : 'GAMEOVER',
+                failures: playerOk ? get().failures : get().failures + 1,
               });
             }
           } else if (currentLevelType === 'HUNT') {
@@ -713,6 +739,13 @@ export const useGameStore = create<GameState>((set, get) => ({
               playerQualified: playerOk,
               winnersList: qualifiers,
               phase: playerOk ? 'ROUND_OUTCOME' : 'GAMEOVER',
+              failures: playerOk ? get().failures : get().failures + 1,
+            });
+          } else if (currentLevelType === 'RACE') {
+            const playerOk = get().playerQualified;
+            const nextPhase = playerOk ? (get().tournamentActive ? 'ROUND_OUTCOME' : 'QUALIFIED') : 'GAMEOVER';
+            set({
+              phase: nextPhase,
               failures: playerOk ? get().failures : get().failures + 1,
             });
           } else if (currentLevelType === 'FINAL') {
@@ -767,6 +800,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       phase: 'ROUND_INTRO',
       cinematicActive: true,
       isPlayerEliminated: false,
+      isSpectating: false,
+      spectatingBotId: null,
       tournamentActive: false,
       currentLevelId: levelId,
       currentLevelType: roundConfig.type,
@@ -789,7 +824,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   selectLevel: (index) => {
-    const sanitizedIndex = Math.max(0, Math.min(3, index));
+    const sanitizedIndex = Math.max(0, Math.min(2, index));
     const levelId = CAMPAIGN_LEVEL_IDS[sanitizedIndex] || 'race_1';
     set({ 
       currentLevelIndex: sanitizedIndex,
@@ -798,7 +833,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   unlockNextLevel: () => set((state) => {
-    const nextMax = Math.min(3, state.maxLevelUnlocked + 1);
+    const nextMax = Math.min(2, state.maxLevelUnlocked + 1);
     localStorage.setItem('chaorunners_max_unlocked', nextMax.toString());
     return { maxLevelUnlocked: nextMax };
   }),
@@ -806,5 +841,47 @@ export const useGameStore = create<GameState>((set, get) => ({
   setUnlockAllLevels: (val) => {
     localStorage.setItem('chaorunners_unlock_all', val.toString());
     set({ unlockAllLevels: val });
+  },
+
+  // ─── Spectator Mode actions ────────────────────────────────────────────
+  enterSpectatorMode: () => {
+    const { activeBots, currentLevelType, winnersList } = useGameStore.getState();
+    const isRace = currentLevelType === 'RACE';
+    const candidates = activeBots.filter((b) => !isRace || !winnersList.includes(b.id));
+    if (candidates.length > 0) {
+      set({ isSpectating: true, spectatingBotId: candidates[0].id });
+    } else if (activeBots.length > 0) {
+      set({ isSpectating: true, spectatingBotId: activeBots[0].id });
+    }
+  },
+
+  exitSpectatorMode: () => {
+    set({ isSpectating: false, spectatingBotId: null });
+  },
+
+  setSpectatingBotId: (id) => {
+    set({ spectatingBotId: id });
+  },
+
+  spectateNext: () => {
+    const { activeBots, spectatingBotId, currentLevelType, winnersList } = useGameStore.getState();
+    if (activeBots.length === 0) return;
+    const isRace = currentLevelType === 'RACE';
+    const candidates = activeBots.filter((b) => !isRace || !winnersList.includes(b.id));
+    if (candidates.length === 0) return;
+    const currentIdx = candidates.findIndex((b) => b.id === spectatingBotId);
+    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % candidates.length;
+    set({ spectatingBotId: candidates[nextIdx].id });
+  },
+
+  spectatePrev: () => {
+    const { activeBots, spectatingBotId, currentLevelType, winnersList } = useGameStore.getState();
+    if (activeBots.length === 0) return;
+    const isRace = currentLevelType === 'RACE';
+    const candidates = activeBots.filter((b) => !isRace || !winnersList.includes(b.id));
+    if (candidates.length === 0) return;
+    const currentIdx = candidates.findIndex((b) => b.id === spectatingBotId);
+    const prevIdx = currentIdx === -1 ? 0 : (currentIdx - 1 + candidates.length) % candidates.length;
+    set({ spectatingBotId: candidates[prevIdx].id });
   },
 }));

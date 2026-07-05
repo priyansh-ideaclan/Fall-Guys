@@ -9,10 +9,9 @@ import { LEVEL_1_LANDMARKS } from '../utils/landmarks';
 
 // ─── Level display names ──────────────────────────────────────────────────────
 const LEVEL_NAMES: Record<string, string> = {
-  'race_1':     'Round 1 · Race',
-  'survival_1': 'Round 2 · Survival',
-  'logic_1':    'Round 3 · Memory Tiles',
-  'survival_2': 'Round 4 · Hex-A-Terrestrial',
+  'race_1':     'Round 1 · Beginner Bounds',
+  'survival_1': 'Round 2 · Spinning Cyclone',
+  'survival_2': 'Round 3 · Hex-A-Terrestrial',
 };
 
 const MODE_ICONS: Record<string, React.ReactNode> = {
@@ -74,6 +73,13 @@ export const HUD: React.FC = () => {
     nitroCooldown,
     botsEnabled,
     isPlayerEliminated,
+    isSpectating,
+    spectatingBotId,
+    enterSpectatorMode,
+    exitSpectatorMode,
+    spectateNext,
+    spectatePrev,
+    racerProgress,
   } = useGameStore();
   const {
     playlist,
@@ -215,6 +221,51 @@ export const HUD: React.FC = () => {
     return () => cancelAnimationFrame(animId);
   }, []);
 
+  // ── Spectator Mode: Auto-enter when player qualifies (R1) or is eliminated (R2/R3)
+  useEffect(() => {
+    if (phase !== 'PLAYING') return;
+    // R1: player qualified → watch others race
+    if (playerQualified && !isSpectating && activeBots.length > 0) {
+      enterSpectatorMode();
+    }
+    // R2/R3: player eliminated → watch survivors
+    if (isPlayerEliminated && !isSpectating && activeBots.length > 0) {
+      enterSpectatorMode();
+    }
+  }, [phase, playerQualified, isPlayerEliminated, activeBots.length, isSpectating, enterSpectatorMode]);
+
+  // ── Spectator Mode: Exit when round ends
+  useEffect(() => {
+    if (phase !== 'PLAYING') {
+      exitSpectatorMode();
+    }
+  }, [phase, exitSpectatorMode]);
+
+  // ── Spectator Mode: Auto-switch if current bot is eliminated
+  useEffect(() => {
+    if (!isSpectating || !spectatingBotId) return;
+    const stillActive = activeBots.some((b) => b.id === spectatingBotId);
+    if (!stillActive && activeBots.length > 0) {
+      spectateNext();
+    }
+  }, [activeBots, isSpectating, spectatingBotId, spectateNext]);
+
+  // ── Spectator Mode: Keyboard controls (Q/E or ←/→)
+  useEffect(() => {
+    if (!isSpectating) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code === 'KeyQ' || e.code === 'ArrowLeft') {
+        e.preventDefault();
+        spectatePrev();
+      } else if (e.code === 'KeyE' || e.code === 'ArrowRight') {
+        e.preventDefault();
+        spectateNext();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isSpectating, spectatePrev, spectateNext]);
+
   // ── Derived values ──────────────────────────────────────────────────────────
   const isTimeLimited = currentLevelType === 'SURVIVAL' || currentLevelType === 'LOGIC' || currentLevelType === 'HUNT' || currentLevelId === 'final_1';
   const displayTimerText = isTimeLimited
@@ -223,6 +274,22 @@ export const HUD: React.FC = () => {
 
   const playerScore = scores['player'] || 0;
   const modeColor = MODE_COLORS[currentLevelType] || 'var(--secondary)';
+
+  const spectatedBotPlacement = useMemo(() => {
+    if (!spectatingBotId || !racerProgress) return 0;
+    const sorted = Object.values(racerProgress).sort((a, b) => {
+      if (a.finished && b.finished) {
+        return (a.finishTime ?? 0) - (b.finishTime ?? 0);
+      }
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.progressValue - a.progressValue;
+    });
+    return sorted.findIndex((r) => r.id === spectatingBotId) + 1;
+  }, [racerProgress, spectatingBotId]);
+
+  const spectatedBotProgress = spectatingBotId ? racerProgress[spectatingBotId] : null;
+  const spectatedBotFinished = !!spectatedBotProgress?.finished;
 
   const allParticipants = useMemo<{ id: string; name: string }[]>(() => [
     { id: 'player', name: playerName || 'You' },
@@ -694,7 +761,7 @@ export const HUD: React.FC = () => {
       )}
 
       {/* ── BOTTOM HUD: controls + leave button ──────────────────────────── */}
-      {phase === 'PLAYING' && (
+      {phase === 'PLAYING' && !isSpectating && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', pointerEvents: 'none' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', pointerEvents: 'auto' }}>
             
@@ -906,44 +973,176 @@ export const HUD: React.FC = () => {
       )}
 
       {/* ── SPECTATOR OVERLAY ────────────────── */}
-      {isPlayerEliminated && phase === 'PLAYING' && (
+      {isSpectating && phase === 'PLAYING' && (
         <div style={{
           position: 'fixed',
           bottom: '24px',
           left: '50%',
           transform: 'translateX(-50%)',
+          width: '90%',
+          maxWidth: '640px',
+          background: 'rgba(10, 10, 15, 0.85)',
+          backdropFilter: 'blur(16px)',
+          border: `2.5px solid ${modeColor}`,
+          boxShadow: `0 0 30px ${modeColor}55, inset 0 0 15px rgba(255,255,255,0.05)`,
+          borderRadius: '16px',
+          padding: '16px 24px',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px',
-          pointerEvents: 'none',
-          zIndex: 1001
+          gap: '12px',
+          zIndex: 1001,
+          pointerEvents: 'auto',
+          boxSizing: 'border-box'
         }}>
-          <div className="glass-panel pulse-animation" style={{
-            padding: '12px 24px',
-            border: '2px solid var(--primary)',
-            boxShadow: '0 0 15px var(--primary-glow)',
-            color: 'white',
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            fontSize: '1.1rem',
-            textAlign: 'center',
-            background: 'rgba(255, 0, 85, 0.4)'
-          }}>
-            💀 YOU WERE ELIMINATED! ({getOrdinal(survivorsCount + 1)} Place)
-          </div>
-          {activeBots.length > 0 && (
-            <div className="glass-panel" style={{
-              padding: '6px 16px',
-              color: 'rgba(255,255,255,0.7)',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em'
-            }}>
-              🎥 Spectating: <span style={{ color: 'var(--cyan)', fontWeight: 800 }}>{activeBots[0].name}</span>
+          {/* Top Row: Spectating status + bot name */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="pulse-animation" style={{
+                background: playerQualified ? 'var(--secondary)' : 'var(--primary)',
+                color: '#000',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.7rem',
+                fontWeight: 900,
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                {playerQualified ? '🎉 QUALIFIED' : '👁️ SPECTATING'}
+              </span>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', fontWeight: 600 }}>
+                {currentLevelType === 'RACE' ? 'Jungle Sprint' : currentLevelId === 'survival_1' ? 'Spin Out' : 'Hex-A-Terrestrial'}
+              </span>
             </div>
-          )}
+            
+            {/* Quick stats details based on level */}
+            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>
+              {currentLevelType === 'RACE' && (
+                <span>Qualified: <strong style={{ color: modeColor }}>{winnersList.length} / {botQualifyingLimit}</strong></span>
+              )}
+              {currentLevelType === 'SURVIVAL' && (
+                <span>Remaining: <strong style={{ color: modeColor }}>{survivorsCount} Alive</strong> | Time: <strong style={{ color: '#ffd60a' }}>{displayTimerText}</strong></span>
+              )}
+              {currentLevelType === 'FINAL' && (
+                <span>Remaining: <strong style={{ color: '#ffd60a' }}>{survivorsCount} Alive</strong></span>
+              )}
+            </div>
+          </div>
+
+          {/* Middle Row: Name & Controls */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0' }}>
+            <button 
+              onClick={() => { spectatePrev(); audioManager.playClick(); }}
+              className="ui-interactive"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1.5px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                color: 'white',
+                padding: '10px 18px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = modeColor; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+            >
+              ◀ Prev Bot
+            </button>
+
+            {/* Spectated Bot Identity */}
+            <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 950, color: 'white', textShadow: '0 0 8px rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                {activeBots.find(b => b.id === spectatingBotId)?.name || 'Unknown Bot'}
+                {currentLevelType === 'RACE' && (
+                  <span style={{
+                    fontSize: '0.8rem',
+                    background: 'rgba(255,214,10,0.15)',
+                    border: '1px solid #ffd60a',
+                    color: '#ffd60a',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontWeight: 900
+                  }}>
+                    #{spectatedBotPlacement}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: modeColor, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Diff: {activeBots.find(b => b.id === spectatingBotId)?.difficulty || 'MEDIUM'}
+                </span>
+                {currentLevelType === 'RACE' && (
+                  <span style={{
+                    fontSize: '0.7rem',
+                    background: spectatedBotFinished ? 'rgba(57,255,20,0.15)' : 'rgba(0,229,255,0.1)',
+                    border: spectatedBotFinished ? '1.5px solid #39ff14' : '1.5px solid var(--secondary)',
+                    borderRadius: '5px',
+                    padding: '2px 6px',
+                    color: spectatedBotFinished ? '#39ff14' : 'var(--secondary)',
+                    fontWeight: 800,
+                    textTransform: 'uppercase'
+                  }}>
+                    {spectatedBotFinished ? 'Qualified' : 'Active'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <button 
+              onClick={() => { spectateNext(); audioManager.playClick(); }}
+              className="ui-interactive"
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1.5px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                color: 'white',
+                padding: '10px 18px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = modeColor; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+            >
+              Next Bot ▶
+            </button>
+          </div>
+
+          {/* Bottom Row: Shortcut helper + Leave button */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px', fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>
+            <span>⌨️ Press <strong style={{ color: 'white' }}>Q / E</strong> or <strong style={{ color: 'white' }}>← / →</strong> keys to cycle</span>
+            
+            <button 
+              onClick={resetTournament} 
+              className="ui-interactive"
+              style={{ 
+                background: 'rgba(255, 60, 60, 0.1)', 
+                border: '1.5px solid rgba(255, 60, 60, 0.25)', 
+                borderRadius: '8px', 
+                color: '#ff8888', 
+                padding: '6px 12px', 
+                fontWeight: 800, 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.75rem',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 60, 60, 0.2)'; e.currentTarget.style.borderColor = '#ff6666'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255, 60, 60, 0.1)'; e.currentTarget.style.borderColor = 'rgba(255, 60, 60, 0.25)'; }}
+            >
+              <Home size={11} /> Return to Lobby
+            </button>
+          </div>
         </div>
       )}
 

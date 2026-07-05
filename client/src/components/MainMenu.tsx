@@ -6,9 +6,8 @@ import { useMusicStore } from '../store/useMusicStore';
 
 const LEVEL_NAMES = [
   'Round 1: Race – Beginner Bounds',
-  'Round 2: Survival – Spinning Arena',
-  'Round 3: Memory – Tile Showdown',
-  'Round 4: Hex – Hex-A-Terrestrial',
+  'Round 2: Survival – Spinning Cyclone',
+  'Round 3: Hex – Hex-A-Terrestrial',
 ];
 
 const COLORS = [
@@ -23,6 +22,10 @@ const COLORS = [
 const ACCESSORIES = [
   { id: 'none', name: 'No Hat' },
   { id: 'crown', name: 'Golden Crown' },
+  { id: 'party', name: 'Party Hat' },
+  { id: 'glasses', name: 'Cool Glasses' },
+  { id: 'halo', name: 'Angel Halo' },
+  { id: 'tophat', name: 'Top Hat' },
   { id: 'ears', name: 'Kitty Ears' },
   { id: 'horns', name: 'Demon Horns' },
 ];

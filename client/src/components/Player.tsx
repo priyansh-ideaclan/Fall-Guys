@@ -725,17 +725,23 @@ export const Player: React.FC = () => {
             .normalize();
           dir.y = other.name === 'lower-beam' ? 0.38 : 0.24; // Lower beam launches player high
 
-          // Stronger knockback force for rotating sweepers and lower-beam
-          const knockForce = other.name === 'lower-beam' 
-            ? 11.8 
-            : (other.name === 'upper-beam' 
-                ? 7.0 
-                : (other.name === 'rotating-arm' ? 12.8 : 8.5));
+          const difficulty = useGameStore.getState().gameDifficulty;
+          const mult = difficulty === 'EASY' ? 0.6 : difficulty === 'MEDIUM' ? 1.0 : 1.5;
+
+          // Rebalanced lower/upper beam knockback to stagger rather than launch instantly
+          let knockForce = 8.5;
+          if (other.name === 'lower-beam') {
+            knockForce = 5.5 * mult;
+          } else if (other.name === 'upper-beam') {
+            knockForce = 4.0 * mult;
+          } else if (other.name === 'rotating-arm') {
+            knockForce = 12.8;
+          }
           
           knockbackVelRef.current.copy(dir).multiplyScalar(knockForce);
           knockbackTimerRef.current = 0.5;
           audioManager.playCollision(); // Play bonk sound effect!
-          useGameStore.getState().triggerCameraShake(other.name === 'lower-beam' ? 0.65 : 0.35);
+          useGameStore.getState().triggerCameraShake((other.name === 'lower-beam' ? 0.65 : 0.35) * mult);
           useGameStore.getState().triggerSplash([playerPos.x, playerPos.y, playerPos.z], '#ff007f'); // Pink splash!
         } else if (other && other.name === 'cannonball') {
           const playerPos = rigidBodyRef.current!.translation();
@@ -806,6 +812,52 @@ export const Player: React.FC = () => {
             <mesh castShadow><boxGeometry args={[0.36, 0.06, 0.04]} /><meshStandardMaterial color="#000000" roughness={0.1} /></mesh>
             <mesh position={[-0.08, -0.02, 0.01]} castShadow><boxGeometry args={[0.12, 0.08, 0.02]} /><meshStandardMaterial color="#00e5ff" metalness={0.9} roughness={0.0} transparent opacity={0.8} /></mesh>
             <mesh position={[0.08, -0.02, 0.01]} castShadow><boxGeometry args={[0.12, 0.08, 0.02]} /><meshStandardMaterial color="#00e5ff" metalness={0.9} roughness={0.0} transparent opacity={0.8} /></mesh>
+          </group>
+        )}
+        {customization.accessory === 'halo' && (
+          <mesh position={[0, 0.95, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.22, 0.024, 8, 24]} />
+            <meshStandardMaterial color="#ffff55" emissive="#ffff55" emissiveIntensity={1.2} roughness={0.1} />
+          </mesh>
+        )}
+        {customization.accessory === 'tophat' && (
+          <group position={[0, 0.72, 0]}>
+            <mesh position={[0, 0.02, 0]} castShadow>
+              <cylinderGeometry args={[0.3, 0.3, 0.02, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.75} />
+            </mesh>
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <cylinderGeometry args={[0.2, 0.2, 0.35, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.75} />
+            </mesh>
+            <mesh position={[0, 0.05, 0]}>
+              <cylinderGeometry args={[0.204, 0.204, 0.05, 16]} />
+              <meshStandardMaterial color="#ff0000" roughness={0.4} />
+            </mesh>
+          </group>
+        )}
+        {customization.accessory === 'ears' && (
+          <group>
+            <mesh position={[-0.18, 0.74, 0]} rotation={[0, 0, 0.35]} castShadow>
+              <coneGeometry args={[0.1, 0.24, 4]} />
+              <meshStandardMaterial color={customization.color} roughness={0.3} />
+            </mesh>
+            <mesh position={[0.18, 0.74, 0]} rotation={[0, 0, -0.35]} castShadow>
+              <coneGeometry args={[0.1, 0.24, 4]} />
+              <meshStandardMaterial color={customization.color} roughness={0.3} />
+            </mesh>
+          </group>
+        )}
+        {customization.accessory === 'horns' && (
+          <group>
+            <mesh position={[-0.15, 0.65, 0.15]} rotation={[-0.2, 0, 0.4]} castShadow>
+              <coneGeometry args={[0.07, 0.22, 10]} />
+              <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} roughness={0.3} />
+            </mesh>
+            <mesh position={[0.15, 0.65, 0.15]} rotation={[-0.2, 0, -0.4]} castShadow>
+              <coneGeometry args={[0.07, 0.22, 10]} />
+              <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} roughness={0.3} />
+            </mesh>
           </group>
         )}
 

@@ -205,7 +205,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       personalityRef.current = personalities[botIdx % personalities.length];
 
       // Tune speeds based on difficulty and personality
-      let baseSpeed = difficulty === 'EASY' ? 4.6 : difficulty === 'MEDIUM' ? 5.5 : 6.5;
+      let baseSpeed = difficulty === 'EASY' ? 3.8 : difficulty === 'MEDIUM' ? 4.8 : 5.7;
       if (personalityRef.current === 'AGGRESSIVE') baseSpeed *= 1.10;
       else if (personalityRef.current === 'RISKY') baseSpeed *= 1.06;
       else if (personalityRef.current === 'BALANCED') baseSpeed *= 1.02;
@@ -453,7 +453,10 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     // 4. Steer logic configurations
     let activeSpeed = botSpeed.current;
-    let accelerationRatio = isGroundedRef.current ? 0.15 : 0.06;
+    const reactionSpeedFactor = difficulty === 'EASY' ? 0.45 : difficulty === 'MEDIUM' ? 0.8 : 1.2;
+    let accelerationRatio = isGroundedRef.current 
+      ? 0.15 * reactionSpeedFactor 
+      : 0.06 * reactionSpeedFactor;
     let jumpImpulse = 6.2;
 
     const isSliding = currentSurface === 'slide' || currentSurface === 'speed-ramp';
@@ -885,7 +888,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       const distToTarget = targetPosVal ? new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(targetPosVal) : Infinity;
       const forceScan = !targetStillActive || distToTarget < 0.55;
       if (scanCooldown.current <= 0 || !hexTargetPos.current || forceScan) {
-        const scanFreq = difficulty === 'HARD' ? 0.08 : difficulty === 'MEDIUM' ? 0.16 : 0.25;
+        const scanFreq = difficulty === 'HARD' ? 0.05 : difficulty === 'MEDIUM' ? 0.18 : 0.45;
         scanCooldown.current = scanFreq;
 
         let bestTile: THREE.Object3D | null = null;
@@ -906,7 +909,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           }
         });
 
-        const maxRange = difficulty === 'HARD' ? 3.0 : 2.2;
+        const maxRange = difficulty === 'HARD' ? 3.0 : difficulty === 'MEDIUM' ? 2.3 : 1.4;
         const botHeight = pos.y;
 
         const candidates = activeTiles.filter((tile) => {
@@ -937,7 +940,10 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
                 neighborCount++;
               }
             });
-            score += neighborCount * 3.0;
+            
+            // Scaled clustering index (Easy ignores clusters; Hard plans paths safely)
+            const neighborWeight = difficulty === 'HARD' ? 5.0 : difficulty === 'MEDIUM' ? 1.5 : 0.2;
+            score += neighborCount * neighborWeight;
 
             if (personalityRef.current === 'AGGRESSIVE' || personalityRef.current === 'RISKY') {
               const playerObj = state.scene.getObjectByName('player-visual');
@@ -951,7 +957,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
               }
             }
 
-            const mistakeRate = difficulty === 'EASY' ? 1.5 : difficulty === 'MEDIUM' ? 0.4 : 0.08;
+            const mistakeRate = difficulty === 'EASY' ? 12.0 : difficulty === 'MEDIUM' ? 3.0 : 0.05;
             score += (Math.random() - 0.5) * mistakeRate;
 
             if (score > bestScore) {
@@ -1064,13 +1070,14 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
           // Dodge lower beam, unless blocked by upper beam
           if (!upperBeamBlocking) {
-            const successRate = difficulty === 'EASY' ? 0.55 : difficulty === 'MEDIUM' ? 0.78 : 0.96;
+            const successRate = difficulty === 'EASY' ? 0.38 : difficulty === 'MEDIUM' ? 0.70 : 0.97;
             if (Math.random() < successRate) {
               shouldJump = true;
             }
           } else {
             // Under upper beam: occasionally panic jump, but mostly run away
-            if (Math.random() < 0.15 && difficulty === 'EASY') {
+            const panicChance = difficulty === 'EASY' ? 0.45 : difficulty === 'MEDIUM' ? 0.15 : 0.02;
+            if (Math.random() < panicChance) {
               shouldJump = true; // Make mistakes!
             }
           }
@@ -1081,7 +1088,8 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     // C. Mid-air recovery jumping (double jump if falling)
     const currentVelY = rb.linvel().y;
     if (!isGroundedRef.current && currentVelY < -0.2 && jumpCountRef.current === 1 && jumpCooldown.current <= 0) {
-      if (Math.random() < (difficulty === 'EASY' ? 0.2 : difficulty === 'MEDIUM' ? 0.6 : 0.9)) {
+      const recoveryRate = difficulty === 'EASY' ? 0.15 : difficulty === 'MEDIUM' ? 0.55 : 0.96;
+      if (Math.random() < recoveryRate) {
         shouldJump = true;
       }
     }
@@ -1379,12 +1387,17 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
             .normalize();
           dir.y = other.name === 'lower-beam' ? 0.38 : 0.24;
 
-          // Stronger knockback force for lower-beam
-          const knockForce = other.name === 'lower-beam' 
-            ? 11.8 
-            : (other.name === 'upper-beam' 
-                ? 7.0 
-                : (other.name === 'rotating-arm' ? 12.8 : 8.5));
+          const mult = difficulty === 'EASY' ? 0.6 : difficulty === 'MEDIUM' ? 1.0 : 1.5;
+
+          // Rebalanced lower/upper beam knockback to stagger bots rather than launch instantly
+          let knockForce = 8.5;
+          if (other.name === 'lower-beam') {
+            knockForce = 5.5 * mult;
+          } else if (other.name === 'upper-beam') {
+            knockForce = 4.0 * mult;
+          } else if (other.name === 'rotating-arm') {
+            knockForce = 12.8;
+          }
           
           knockbackVelRef.current.copy(dir).multiplyScalar(knockForce);
           knockbackTimerRef.current = 0.5;
@@ -1441,7 +1454,6 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         <group ref={rightLegRef} position={[0.2, -0.65, 0]}>
           <mesh castShadow><capsuleGeometry args={[0.1, 0.15, 8, 8]} /><meshStandardMaterial color={color} /></mesh>
         </group>
-
         {accessory === 'crown' && (
           <group position={[0, 0.72, 0]}>
             <mesh castShadow><cylinderGeometry args={[0.22, 0.2, 0.15, 12]} /><meshStandardMaterial color="#ffd700" metalness={0.8} /></mesh>
@@ -1456,9 +1468,55 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         )}
         {accessory === 'glasses' && (
           <group position={[0, 0.3, 0.49]}>
-            <mesh><boxGeometry args={[0.36, 0.06, 0.04]} /><meshStandardMaterial color="#000" /></mesh>
+            <mesh><boxGeometry args={[0.36, 0.06, 0.04]} /><meshStandardMaterial color="#00" /></mesh>
             <mesh position={[-0.08, -0.02, 0.01]}><boxGeometry args={[0.12, 0.08, 0.02]} /><meshStandardMaterial color="#ff007f" transparent opacity={0.8} /></mesh>
             <mesh position={[0.08, -0.02, 0.01]}><boxGeometry args={[0.12, 0.08, 0.02]} /><meshStandardMaterial color="#ff007f" transparent opacity={0.8} /></mesh>
+          </group>
+        )}
+        {accessory === 'halo' && (
+          <mesh position={[0, 0.95, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.22, 0.024, 8, 24]} />
+            <meshStandardMaterial color="#ffff55" emissive="#ffff55" emissiveIntensity={1.2} roughness={0.1} />
+          </mesh>
+        )}
+        {accessory === 'tophat' && (
+          <group position={[0, 0.72, 0]}>
+            <mesh position={[0, 0.02, 0]} castShadow>
+              <cylinderGeometry args={[0.3, 0.3, 0.02, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.75} />
+            </mesh>
+            <mesh position={[0, 0.2, 0]} castShadow>
+              <cylinderGeometry args={[0.2, 0.2, 0.35, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.75} />
+            </mesh>
+            <mesh position={[0, 0.05, 0]}>
+              <cylinderGeometry args={[0.204, 0.204, 0.05, 16]} />
+              <meshStandardMaterial color="#ff0000" roughness={0.4} />
+            </mesh>
+          </group>
+        )}
+        {accessory === 'ears' && (
+          <group>
+            <mesh position={[-0.18, 0.74, 0]} rotation={[0, 0, 0.35]} castShadow>
+              <coneGeometry args={[0.1, 0.24, 4]} />
+              <meshStandardMaterial color={color} roughness={0.3} />
+            </mesh>
+            <mesh position={[0.18, 0.74, 0]} rotation={[0, 0, -0.35]} castShadow>
+              <coneGeometry args={[0.1, 0.24, 4]} />
+              <meshStandardMaterial color={color} roughness={0.3} />
+            </mesh>
+          </group>
+        )}
+        {accessory === 'horns' && (
+          <group>
+            <mesh position={[-0.15, 0.65, 0.15]} rotation={[-0.2, 0, 0.4]} castShadow>
+              <coneGeometry args={[0.07, 0.22, 10]} />
+              <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} roughness={0.3} />
+            </mesh>
+            <mesh position={[0.15, 0.65, 0.15]} rotation={[-0.2, 0, -0.4]} castShadow>
+              <coneGeometry args={[0.07, 0.22, 10]} />
+              <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={0.5} roughness={0.3} />
+            </mesh>
           </group>
         )}
 

@@ -297,6 +297,7 @@ export const Survival1: React.FC = () => {
   const theme = useGameStore((state) => state.visualTheme);
   const config = getThemeConfig(theme);
   const eliminateRacer = useGameStore((state) => state.eliminateRacer);
+  const difficulty = useGameStore((state) => state.gameDifficulty);
 
   // Synced state triggers
   const isActive = phase === 'PLAYING' || phase === 'ROUND_INTRO';
@@ -337,6 +338,7 @@ export const Survival1: React.FC = () => {
   const lakeRef = useRef<THREE.Mesh>(null);
 
   useFrame((state, delta) => {
+    const speedMult = difficulty === 'EASY' ? 0.65 : difficulty === 'MEDIUM' ? 1.0 : 1.35;
     // ── 1. Rotate the Arena Floor (Platform) ──
     const plat = platformRbRef.current;
     if (plat) {
@@ -419,7 +421,7 @@ export const Survival1: React.FC = () => {
           syncPatternType.current = Math.random() > 0.5 ? 'same' : 'opposite';
           
           // Choose a synchronized speed magnitude (0.8 to 1.2 rad/s)
-          const syncSpeed = 0.8 + Math.random() * 0.4;
+          const syncSpeed = (0.8 + Math.random() * 0.4) * speedMult;
           const dir = Math.random() > 0.5 ? 1 : -1;
           
           lowerBeamTargetSpeed.current = dir * syncSpeed;
@@ -437,16 +439,17 @@ export const Survival1: React.FC = () => {
       syncDurationTimer.current = 0;
       
       lowerBeamSpeed.current = 0;
-      lowerBeamTargetSpeed.current = 1.2;
+      lowerBeamTargetSpeed.current = 1.2 * speedMult;
       lowerBeamSpeedChangeTimer.current = 9.0 + Math.random() * 6.0;
 
       upperBeamSpeed.current = 0;
-      upperBeamTargetSpeed.current = -0.9;
+      upperBeamTargetSpeed.current = -0.9 * speedMult;
       upperBeamSpeedChangeTimer.current = 9.0 + Math.random() * 6.0;
     }
 
-    const rawRamp = Math.min(1.0, playTime.current / 2.5);
-    const ramp = rawRamp * rawRamp * (3 - 2 * rawRamp); // smoothstep ease
+    const rawRamp = Math.min(1.0, playTime.current / 6.0);
+    const ease = rawRamp * rawRamp * (3 - 2 * rawRamp); // smoothstep ease
+    const ramp = 0.15 + 0.85 * ease; // Starts rotating slowly at 15% and ramps up to 100% over 6 seconds
 
     // ── 2. Rotate Lower Beam ──
     const lowerB = lowerBeamRbRef.current;
@@ -461,13 +464,13 @@ export const Survival1: React.FC = () => {
             const currentDir = Math.sign(lowerBeamTargetSpeed.current) || 1;
             const shouldReverse = Math.random() < 0.3; // 30% chance to reverse
             const nextDir = shouldReverse ? -currentDir : currentDir;
-            const nextSpeedMag = 0.9 + Math.random() * 0.9; // Rebalanced speed: 0.9 to 1.8 rad/s
+            const nextSpeedMag = (0.9 + Math.random() * 0.9) * speedMult; // Rebalanced speed scaled by difficulty
             lowerBeamTargetSpeed.current = nextDir * nextSpeedMag;
             lowerBeamSpeedChangeTimer.current = 9.0 + Math.random() * 6.0; // 9-15s gap
           }
         }
       }
-      lowerBeamSpeed.current = THREE.MathUtils.lerp(lowerBeamSpeed.current, lowerBeamTargetSpeed.current, delta * 1.5);
+      lowerBeamSpeed.current = THREE.MathUtils.lerp(lowerBeamSpeed.current, lowerBeamTargetSpeed.current, delta * 0.45);
       lowerBeamAngle.current += lowerBeamSpeed.current * ramp * delta;
       
       const qLower = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), lowerBeamAngle.current);
@@ -488,13 +491,13 @@ export const Survival1: React.FC = () => {
             const currentDir = Math.sign(upperBeamTargetSpeed.current) || -1;
             const shouldReverse = Math.random() < 0.3; // 30% chance to reverse
             const nextDir = shouldReverse ? -currentDir : currentDir;
-            const nextSpeedMag = 0.6 + Math.random() * 0.7; // Rebalanced speed: 0.6 to 1.3 rad/s
+            const nextSpeedMag = (0.6 + Math.random() * 0.7) * speedMult; // Rebalanced speed scaled by difficulty
             upperBeamTargetSpeed.current = nextDir * nextSpeedMag;
             upperBeamSpeedChangeTimer.current = 9.0 + Math.random() * 6.0; // 9-15s gap
           }
         }
       }
-      upperBeamSpeed.current = THREE.MathUtils.lerp(upperBeamSpeed.current, upperBeamTargetSpeed.current, delta * 1.5);
+      upperBeamSpeed.current = THREE.MathUtils.lerp(upperBeamSpeed.current, upperBeamTargetSpeed.current, delta * 0.45);
       upperBeamAngle.current += upperBeamSpeed.current * ramp * delta;
 
       const qUpper = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), upperBeamAngle.current);
@@ -554,10 +557,10 @@ export const Survival1: React.FC = () => {
           <meshBasicMaterial color="#d93b3b" />
         </mesh>
 
-        {/* Decorative central column structure */}
-        <mesh castShadow position={[0, 0.6, 0]}>
-          <cylinderGeometry args={[0.8, 1.0, 1.2, 16]} />
-          <meshStandardMaterial color="#2d3326" roughness={0.7} />
+        {/* Decorative central column structure (Orange/Yellow base support) */}
+        <mesh castShadow position={[0, 0.9, 0]}>
+          <cylinderGeometry args={[1.0, 1.0, 2.0, 24]} />
+          <meshStandardMaterial color="#ffa500" roughness={0.4} metalness={0.1} />
         </mesh>
       </RigidBody>
 
@@ -572,12 +575,41 @@ export const Survival1: React.FC = () => {
         friction={0.3}
         name="lower-beam"
       >
-        <CuboidCollider args={[7.2, 0.16, 0.16]} />
-        <mesh castShadow>
-          <boxGeometry args={[14.4, 0.32, 0.32]} />
-          {/* Lime Green neon sweeper logs */}
-          <meshStandardMaterial color="#4ef20d" roughness={0.15} emissive="#32cd32" emissiveIntensity={0.4} />
-        </mesh>
+        <CuboidCollider args={[7.2, 0.22, 0.22]} />
+        <group>
+          {/* Thick pink sweeping cylinder */}
+          <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.22, 0.22, 14.4, 16]} />
+            <meshStandardMaterial 
+              color="#d91a7e" 
+              roughness={0.2} 
+              metalness={0.1}
+              emissive="#d91a7e" 
+              emissiveIntensity={0.25} 
+            />
+          </mesh>
+          {/* Rotating central hub sleeve */}
+          <mesh castShadow position={[0, 0, 0]}>
+            <cylinderGeometry args={[1.15, 1.15, 0.76, 24]} />
+            <meshStandardMaterial color="#d91a7e" roughness={0.3} />
+          </mesh>
+          {/* Warning chevron stripes on the lower rotating hub */}
+          {Array.from({ length: 8 }).map((_, idx) => {
+            const rotY = (idx * Math.PI * 2) / 8;
+            return (
+              <group key={idx} rotation={[0, rotY, 0]}>
+                <mesh position={[0, 0.15, 1.16]} rotation={[0, 0, -Math.PI / 4]}>
+                  <boxGeometry args={[0.2, 0.08, 0.02]} />
+                  <meshBasicMaterial color="#ffffff" />
+                </mesh>
+                <mesh position={[0, -0.15, 1.16]} rotation={[0, 0, Math.PI / 4]}>
+                  <boxGeometry args={[0.2, 0.08, 0.02]} />
+                  <meshBasicMaterial color="#ffffff" />
+                </mesh>
+              </group>
+            );
+          })}
+        </group>
       </RigidBody>
 
       {/* Upper Beam: blocks jumps (Y = 1.32) */}
@@ -590,12 +622,33 @@ export const Survival1: React.FC = () => {
         friction={0.4}
         name="upper-beam"
       >
-        <CuboidCollider args={[7.2, 0.16, 0.16]} />
-        <mesh castShadow>
-          <boxGeometry args={[14.4, 0.32, 0.32]} />
-          {/* Hot Magenta neon blocking logs */}
-          <meshStandardMaterial color="#f00df2" roughness={0.15} emissive="#db0bc2" emissiveIntensity={0.45} />
-        </mesh>
+        <CuboidCollider args={[7.2, 0.18, 0.18]} />
+        <group>
+          {/* Thin lime green sweeping cylinder */}
+          <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.18, 0.18, 14.4, 16]} />
+            <meshStandardMaterial 
+              color="#39ff14" 
+              roughness={0.15} 
+              emissive="#39ff14" 
+              emissiveIntensity={0.65} 
+            />
+          </mesh>
+          {/* Rotating central hub sleeve */}
+          <mesh castShadow position={[0, 0, 0]}>
+            <cylinderGeometry args={[1.08, 1.08, 0.5, 24]} />
+            <meshStandardMaterial color="#39ff14" roughness={0.3} emissive="#39ff14" emissiveIntensity={0.2} />
+          </mesh>
+          {/* Warning bands on upper rotating hub */}
+          <mesh position={[0, 0.18, 0]}>
+            <cylinderGeometry args={[1.09, 1.09, 0.06, 24]} />
+            <meshBasicMaterial color="#ffffff" />
+          </mesh>
+          <mesh position={[0, -0.18, 0]}>
+            <cylinderGeometry args={[1.09, 1.09, 0.06, 24]} />
+            <meshBasicMaterial color="#ffffff" />
+          </mesh>
+        </group>
       </RigidBody>
 
       {/* ── 4. Slime Lake Water (Kill Zone visual) ── */}

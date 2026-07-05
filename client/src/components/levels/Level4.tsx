@@ -1,10 +1,179 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
+import { useTexture } from '@react-three/drei';
 import { RigidBody, CylinderCollider, RapierRigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useGameStore } from '../../store/useGameStore';
 import { getThemeConfig } from '../../utils/themeManager';
 import { audioManager } from '../../utils/audioManager';
+
+// ─── Pastel Background Component ───────────────────────────────────────────
+const PastelBackground: React.FC = () => {
+  const { scene } = useThree();
+  const cloudsRef = useRef<THREE.Group>(null);
+
+  useEffect(() => {
+    // Set pink background sky and matching fog
+    const originalBg = scene.background;
+    const originalFog = scene.fog;
+
+    scene.background = new THREE.Color('#ffb7b2'); // Warm pastel pink sky
+    scene.fog = new THREE.FogExp2('#ffb7b2', 0.012); // atmospheric haze
+
+    return () => {
+      scene.background = originalBg;
+      scene.fog = originalFog;
+    };
+  }, [scene]);
+
+  // Slowly drift clouds
+  useFrame((state) => {
+    if (cloudsRef.current) {
+      cloudsRef.current.rotation.y = state.clock.getElapsedTime() * 0.012;
+    }
+  });
+
+  // Shader material for green hills with contour lines
+  const hillShader = useMemo(() => {
+    return {
+      uniforms: {
+        hillColor: { value: new THREE.Color('#cceebb') }, // Pastel green
+        lineColor: { value: new THREE.Color('#aaddaa') }, // Slightly darker green line
+      },
+      vertexShader: `
+        varying vec3 vPos;
+        void main() {
+          vPos = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vPos;
+        uniform vec3 hillColor;
+        uniform vec3 lineColor;
+        void main() {
+          // Draw contour lines based on height coordinate Y
+          float scale = 0.85; 
+          float thickness = 0.06;
+          float linePattern = step(1.0 - thickness, fract(vPos.y * scale));
+          vec3 color = mix(hillColor, lineColor, linePattern);
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `
+    };
+  }, []);
+
+  return (
+    <group name="pastel_bg">
+      {/* Ambient and directional lights */}
+      <ambientLight color="#ffebf0" intensity={1.1} />
+      <directionalLight position={[15, 25, 15]} color="#fff0f5" intensity={1.4} castShadow />
+
+      {/* ── 1. Far Snow-Capped Mountains ── */}
+      {Array.from({ length: 8 }).map((_, i) => {
+        const angle = (i * Math.PI * 2) / 8 + 0.35;
+        const radius = 68 + Math.random() * 8;
+        const x = Math.sin(angle) * radius;
+        const z = Math.cos(angle) * radius;
+        const height = 18 + Math.random() * 6;
+        const baseWidth = 15 + Math.random() * 5;
+        
+        return (
+          <group key={`mountain_${i}`} position={[x, height / 2 - 5, z]}>
+            {/* Mountain Base */}
+            <mesh castShadow receiveShadow>
+              <coneGeometry args={[baseWidth, height, 5]} />
+              <meshStandardMaterial color="#b2d8d8" roughness={0.9} flatShading />
+            </mesh>
+            {/* Snowy Peak */}
+            <mesh position={[0, height / 4, 0]}>
+              <coneGeometry args={[baseWidth / 2, height / 2, 5]} />
+              <meshStandardMaterial color="#ffffff" roughness={0.8} flatShading />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/* ── 2. Rolling Green Hills with Contour Lines ── */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const angle = (i * Math.PI * 2) / 12;
+        const radius = 42 + Math.random() * 6;
+        const x = Math.sin(angle) * radius;
+        const z = Math.cos(angle) * radius;
+        const scaleX = 24 + Math.random() * 6;
+        const scaleY = 8 + Math.random() * 3;
+        const scaleZ = 24 + Math.random() * 6;
+
+        return (
+          <group key={`hill_${i}`} position={[x, -3.5, z]}>
+            <mesh scale={[scaleX, scaleY, scaleZ]}>
+              <sphereGeometry args={[1, 32, 16]} />
+              <shaderMaterial attach="material" args={[hillShader]} />
+            </mesh>
+
+            {/* Scattered cartoon trees on this hill */}
+            {Array.from({ length: 3 }).map((_, tIdx) => {
+              const tAngle = Math.random() * Math.PI * 2;
+              const tRadius = Math.random() * 0.65;
+              const tx = Math.sin(tAngle) * tRadius * scaleX;
+              const tz = Math.cos(tAngle) * tRadius * scaleZ;
+              const ty = Math.cos((tRadius * Math.PI) / 2) * scaleY - 0.2;
+              
+              const treeHeight = 1.3 + Math.random() * 0.7;
+              const foliageColor = ['#ffd3b6', '#a8e6cf', '#ffaaa5', '#dcedc1'][tIdx % 4];
+
+              return (
+                <group key={`tree_${tIdx}`} position={[tx, ty, tz]}>
+                  {/* Trunk */}
+                  <mesh position={[0, treeHeight / 2, 0]}>
+                    <cylinderGeometry args={[0.08, 0.12, treeHeight, 8]} />
+                    <meshStandardMaterial color="#8b5a2b" roughness={0.9} />
+                  </mesh>
+                  {/* Foliage */}
+                  <mesh position={[0, treeHeight + 0.3, 0]}>
+                    <sphereGeometry args={[0.55, 8, 8]} />
+                    <meshStandardMaterial color={foliageColor} roughness={0.6} flatShading />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        );
+      })}
+
+      {/* ── 3. Gently Drifting Fluffy Clouds ── */}
+      <group ref={cloudsRef}>
+        {Array.from({ length: 8 }).map((_, i) => {
+          const angle = (i * Math.PI * 2) / 8;
+          const radius = 38 + Math.random() * 8;
+          const x = Math.sin(angle) * radius;
+          const z = Math.cos(angle) * radius;
+          const y = 15 + Math.random() * 5;
+
+          return (
+            <group key={`cloud_${i}`} position={[x, y, z]} scale={[1.6, 1.3, 1.6]}>
+              {/* Central fluff */}
+              <mesh>
+                <sphereGeometry args={[1.3, 16, 16]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.9} transparent opacity={0.9} />
+              </mesh>
+              {/* Left fluff */}
+              <mesh position={[-1.1, -0.2, 0]} scale={[0.8, 0.8, 0.8]}>
+                <sphereGeometry args={[1.3, 12, 12]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.9} transparent opacity={0.9} />
+              </mesh>
+              {/* Right fluff */}
+              <mesh position={[1.1, -0.2, 0]} scale={[0.8, 0.8, 0.8]}>
+                <sphereGeometry args={[1.3, 12, 12]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.9} transparent opacity={0.9} />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
+    </group>
+  );
+};
 
 // ─── Individual Hex Tile Component ──────────────────────────────────────────
 interface HexTileProps {
@@ -195,6 +364,8 @@ export const Level4: React.FC = () => {
   const phase = useGameStore((state) => state.phase);
   const levelSeed = useGameStore((state) => state.levelSeed);
 
+
+
   // Generate 3 tiers of hexagonal tiles
   const tiersData = useMemo(() => {
     const size = 0.60; // Spaced tile hex size (R=0.58, spacing 0.60 gives a perfect small 3.5cm gap)
@@ -311,6 +482,9 @@ export const Level4: React.FC = () => {
           onIntersectionEnter={handleKillZone} 
         />
       </RigidBody>
+
+      {/* ── 4. Pastel Background (Mountains, Hills, Trees, Clouds) ── */}
+      <PastelBackground />
     </group>
   );
 };

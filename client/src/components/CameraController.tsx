@@ -199,22 +199,47 @@ export const CameraController: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────
   useFrame((state, delta) => {
     const playerMesh = state.scene.getObjectByName('player-visual');
-    const isPlayerEliminated = useGameStore.getState().isPlayerEliminated;
-    const activeBots = useGameStore.getState().activeBots;
+    const { isPlayerEliminated, activeBots, isSpectating, spectatingBotId, spectateNext } = useGameStore.getState();
 
-    let targetMesh = playerMesh;
+    let targetMesh: THREE.Object3D | null = null;
 
-    if (isPlayerEliminated && activeBots.length > 0) {
+    // Spectator mode: follow the designated bot
+    if (isSpectating && spectatingBotId) {
+      const isRace = useGameStore.getState().currentLevelType === 'RACE';
+      const winners = useGameStore.getState().winnersList;
+
+      // Auto-switch if the current spectated bot no longer exists in active bots
+      // or if it has already qualified in a race round
+      const stillActive = activeBots.some((b) => b.id === spectatingBotId) &&
+                          (!isRace || !winners.includes(spectatingBotId));
+
+      if (!stillActive && activeBots.length > 0) {
+        spectateNext();
+      }
+
+      const targetId = useGameStore.getState().spectatingBotId;
+      if (targetId) {
+        state.scene.traverse((child) => {
+          if (!targetMesh && child.userData && child.userData.id === targetId) {
+            targetMesh = child;
+          }
+        });
+      }
+    }
+
+    // Fallback: if player is eliminated and not spectating a bot, find first active bot
+    if (!targetMesh && isPlayerEliminated && activeBots.length > 0 && !isSpectating) {
       const spectateId = activeBots[0].id;
-      let spectatedBotMesh: THREE.Object3D | null = null;
       state.scene.traverse((child) => {
-        if (child.userData && child.userData.id === spectateId) {
-          spectatedBotMesh = child;
+        if (!targetMesh && child.userData && child.userData.id === spectateId) {
+          targetMesh = child;
         }
       });
-      if (spectatedBotMesh) {
-        targetMesh = spectatedBotMesh;
-      }
+    }
+
+    // Default: follow the player
+    if (!targetMesh) {
+      targetMesh = playerMesh || null;
     }
 
     if (!targetMesh) return;
