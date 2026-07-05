@@ -100,7 +100,7 @@ export const MainMenu: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
             <Sparkles size={16} color="var(--secondary)" />
             <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--secondary)' }}>
-              Sequential fixed campaign
+              Battle for the Crown
             </span>
           </div>
           <h1 className="gradient-title" style={{ fontSize: '2.5rem', margin: '0 0 6px 0', lineHeight: 1.1 }}>
