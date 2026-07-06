@@ -214,7 +214,6 @@ const HexTile: React.FC<HexTileProps> = ({ id, position, color }) => {
       const timer = setTimeout(() => {
         setStatus('falling');
         useGameStore.getState().triggerSplash([position[0], -4.0, position[2]], '#00ffc4');
-        audioManager.playCollision(); // Play short impact sound
       }, delay);
       return () => clearTimeout(timer);
     }

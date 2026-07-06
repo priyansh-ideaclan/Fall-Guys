@@ -38,6 +38,9 @@ class AudioManager {
   ];
   private musicVolumeMultiplier = 1.0;
   private lastLevelId = '';
+  private lastWindVol = -1;
+  private lastRainVol = -1;
+  private lastSlideWindVol = -1;
 
   constructor() {
     // Listen to changes in the game store to adjust volumes and music levels dynamically
@@ -145,7 +148,17 @@ class AudioManager {
   public updateWeatherAmbience(windVol: number, rainVol: number) {
     this.init();
     if (!this.ctx || !this.windGainNode || !this.rainGainNode) return;
+
+    // Cache to prevent continuous scheduler updates (popping/crackling glitches)
+    if (Math.abs(this.lastWindVol - windVol) < 0.001 && Math.abs(this.lastRainVol - rainVol) < 0.001) {
+      return;
+    }
+    this.lastWindVol = windVol;
+    this.lastRainVol = rainVol;
+
     const time = this.ctx.currentTime;
+    this.windGainNode.gain.cancelScheduledValues(time);
+    this.rainGainNode.gain.cancelScheduledValues(time);
     this.windGainNode.gain.linearRampToValueAtTime(windVol * 0.18, time + 0.35);
     this.rainGainNode.gain.linearRampToValueAtTime(rainVol * 0.22, time + 0.35);
   }
@@ -188,7 +201,14 @@ class AudioManager {
     }
 
     const targetGain = Math.min(0.28, volume * 0.22);
-    this.slideWindGainNode.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + 0.1);
+    if (Math.abs(this.lastSlideWindVol - targetGain) < 0.001) {
+      return;
+    }
+    this.lastSlideWindVol = targetGain;
+
+    const time = this.ctx.currentTime;
+    this.slideWindGainNode.gain.cancelScheduledValues(time);
+    this.slideWindGainNode.gain.linearRampToValueAtTime(targetGain, time + 0.1);
   }
 
   private async loadDefeatSound() {
