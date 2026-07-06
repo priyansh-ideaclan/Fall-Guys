@@ -8,6 +8,9 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  build: {
+    chunkSizeWarningLimit: 4000,
+  },
   test: {
     globals: true,
     environment: 'jsdom',
