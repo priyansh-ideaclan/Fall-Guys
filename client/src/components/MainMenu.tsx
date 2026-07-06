@@ -5,9 +5,9 @@ import { Sparkles, Play, Volume2, VolumeX, Unlock, Lock } from 'lucide-react';
 import { useMusicStore } from '../store/useMusicStore';
 
 const LEVEL_NAMES = [
-  'Round 1: Race – Beginner Bounds',
-  'Round 2: Survival – Spinning Cyclone',
-  'Round 3: Hex – Hex-A-Terrestrial',
+  'Round 1 - Jungle Sprint 🏁',
+  'Round 2 - Spin Out 🌪️',
+  'Round 3 - Hex-A-Terrestrial 🔶',
 ];
 
 const COLORS = [

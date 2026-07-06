@@ -9,9 +9,9 @@ import { LEVEL_1_LANDMARKS } from '../utils/landmarks';
 
 // ─── Level display names ──────────────────────────────────────────────────────
 const LEVEL_NAMES: Record<string, string> = {
-  'race_1':     'Round 1 · Beginner Bounds',
-  'survival_1': 'Round 2 · Spinning Cyclone',
-  'survival_2': 'Round 3 · Hex-A-Terrestrial',
+  'race_1':     'Round 1 · Jungle Sprint 🏁',
+  'survival_1': 'Round 2 · Spin Out 🌪️',
+  'survival_2': 'Round 3 · Hex-A-Terrestrial 🔶',
 };
 
 const MODE_ICONS: Record<string, React.ReactNode> = {
@@ -1010,7 +1010,7 @@ export const HUD: React.FC = () => {
                 {playerQualified ? '🎉 QUALIFIED' : '👁️ SPECTATING'}
               </span>
               <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', fontWeight: 600 }}>
-                {currentLevelType === 'RACE' ? 'Jungle Sprint' : currentLevelId === 'survival_1' ? 'Spin Out' : 'Hex-A-Terrestrial'}
+                {currentLevelType === 'RACE' ? 'Jungle Sprint 🏁' : currentLevelId === 'survival_1' ? 'Spin Out 🌪️' : 'Hex-A-Terrestrial 🔶'}
               </span>
             </div>
             

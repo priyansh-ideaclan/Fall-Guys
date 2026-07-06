@@ -207,7 +207,7 @@ const HUNT_LEVELS: string[] = [];
 const FINAL_LEVELS: string[] = [];
 
 // Fixed 3-round tournament progression
-// Round: 1=Race (Beginner Bounds), 2=Survival (Spinning Cyclone), 3=Hex (Hex-A-Terrestrial, Final Showdown)
+// Round: 1=Race (Jungle Sprint), 2=Survival (Spin Out), 3=Hex (Hex-A-Terrestrial, Final Showdown)
 const ROUND_PROGRESSION: Array<{
   levelId: string;
   type: LevelType;
@@ -219,7 +219,7 @@ const ROUND_PROGRESSION: Array<{
   {
     levelId: 'race_1',
     type: 'RACE',
-    objective: 'Beginner Bounds: Dash to the finish line across see-saws, wind blowers, and sliding beams!',
+    objective: 'Jungle Sprint: Dash to the finish line across see-saws, wind blowers, and sliding beams!',
     maxPlayers: 12,
     qualifyLimit: 6,
     timeLimit: 0,
@@ -227,7 +227,7 @@ const ROUND_PROGRESSION: Array<{
   {
     levelId: 'survival_1',
     type: 'SURVIVAL',
-    objective: 'Spinning Cyclone: Dodge the spinning log sweeps and stay on the rotating platform!',
+    objective: 'Spin Out: Dodge the spinning log sweeps and stay on the rotating platform!',
     maxPlayers: 10,
     qualifyLimit: 5,
     timeLimit: 40,
