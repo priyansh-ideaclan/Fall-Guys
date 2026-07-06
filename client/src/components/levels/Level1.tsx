@@ -228,12 +228,6 @@ export const Level1: React.FC = () => {
           <boxGeometry args={[9, 0.8, 7]} />
           <meshStandardMaterial color="#3cb371" roughness={0.6} />
         </mesh>
-        
-        {/* Hurdle Obstacle */}
-        <mesh castShadow position={[0, 0.25, 8.5]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.12, 0.12, 9, 12]} />
-          <meshStandardMaterial color={config.obstacleColor2} roughness={0.4} />
-        </mesh>
       </RigidBody>
       
       {/* Walkway 2 */}
