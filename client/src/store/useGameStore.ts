@@ -221,7 +221,7 @@ const ROUND_PROGRESSION: Array<{
     type: 'RACE',
     objective: 'Jungle Sprint: Dash to the finish line across see-saws, wind blowers, and sliding beams!',
     maxPlayers: 12,
-    qualifyLimit: 6,
+    qualifyLimit: 8,
     timeLimit: 0,
   },
   {
@@ -431,7 +431,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentLevelId: levelId,
       currentLevelType: 'RACE',
       roundObjective: 'Reach the finish line before slot fills!',
-      botQualifyingLimit: 6, // Top 6 qualify (for 6 players in Round 2)
+      botQualifyingLimit: 8, // Top 8 qualify (for 8 players in Round 2)
       playerQualified: false,
       winnersList: [],
       eliminationOrder: [],
@@ -551,19 +551,30 @@ export const useGameStore = create<GameState>((set, get) => ({
       const isSurvival = state.currentLevelId === 'survival_1' || state.currentLevelId === 'survival_2';
       if (isSurvival) {
         const totalRemainingBots = state.activeBots.length;
-        if (totalRemainingBots <= (state.currentLevelId === 'survival_2' ? 1 : 0)) {
-          let finalWinners: string[] = [];
-          if (state.currentLevelId === 'survival_1') {
-            finalWinners = computeSurvivalWinners([], nextEliminationOrder, nextProgress, false);
+        if (state.currentLevelId === 'survival_1') {
+          if (totalRemainingBots <= state.botQualifyingLimit) {
+            const finalWinners = computeSurvivalWinners(state.activeBots, nextEliminationOrder, nextProgress, false);
+            const qualifiers = finalWinners.slice(0, state.botQualifyingLimit);
+            return {
+              isPlayerEliminated: true,
+              eliminationOrder: nextEliminationOrder,
+              racerProgress: nextProgress,
+              winnersList: qualifiers,
+              phase: 'GAMEOVER',
+              failures: state.failures + 1
+            };
           }
-          return {
-            isPlayerEliminated: true,
-            eliminationOrder: nextEliminationOrder,
-            racerProgress: nextProgress,
-            winnersList: finalWinners,
-            phase: 'GAMEOVER',
-            failures: state.failures + 1
-          };
+        } else if (state.currentLevelId === 'survival_2') {
+          if (totalRemainingBots <= 1) {
+            return {
+              isPlayerEliminated: true,
+              eliminationOrder: nextEliminationOrder,
+              racerProgress: nextProgress,
+              winnersList: [],
+              phase: 'GAMEOVER',
+              failures: state.failures + 1
+            };
+          }
         }
         return {
           isPlayerEliminated: true,
@@ -585,18 +596,40 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     if (state.currentLevelId === 'survival_1') {
       const playerAlive = !state.isPlayerEliminated;
-      if (nextBots.length === 0 && !playerAlive) {
-        const finalWinners = computeSurvivalWinners(nextBots, nextEliminationOrder, nextProgress, false);
+      const totalRemaining = nextBots.length + (playerAlive ? 1 : 0);
+
+      // If survivors count drops below or equals the qualify limit, end early!
+      if (totalRemaining <= state.botQualifyingLimit && totalRemaining > 0) {
+        const finalWinners = computeSurvivalWinners(nextBots, nextEliminationOrder, nextProgress, playerAlive);
+        const qualifiers = finalWinners.slice(0, state.botQualifyingLimit);
+        const playerOk = qualifiers.includes('player');
+        
         return {
           activeBots: nextBots,
           eliminatedBots: nextEliminated,
           eliminationOrder: nextEliminationOrder,
           racerProgress: nextProgress,
-          winnersList: finalWinners,
+          playerQualified: playerOk,
+          winnersList: qualifiers,
+          phase: playerOk ? 'ROUND_OUTCOME' : 'GAMEOVER',
+          failures: playerOk ? state.failures : state.failures + 1,
+        };
+      }
+
+      if (totalRemaining === 0) {
+        const finalWinners = computeSurvivalWinners(nextBots, nextEliminationOrder, nextProgress, false);
+        const qualifiers = finalWinners.slice(0, state.botQualifyingLimit);
+        return {
+          activeBots: nextBots,
+          eliminatedBots: nextEliminated,
+          eliminationOrder: nextEliminationOrder,
+          racerProgress: nextProgress,
+          winnersList: qualifiers,
           phase: 'GAMEOVER',
           failures: state.failures + 1
         };
       }
+
       return {
         activeBots: nextBots,
         eliminatedBots: nextEliminated,
@@ -679,12 +712,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const theme = THEMES[Math.floor(Math.random() * THEMES.length)];
     const spawnPoint = SPAWN_POINTS[roundConfig.levelId] || [0, 4, 0];
 
+    let nextQualifyLimit = roundConfig.qualifyLimit;
+    if (get().tournamentActive && nextRound === 2) {
+      nextQualifyLimit = 4; // 4 qualify in Round 2 when progressed from Round 1 (8 total players)
+    }
+
     set({
       currentRound: nextRound,
       currentLevelId: roundConfig.levelId,
       currentLevelType: roundConfig.type,
       roundObjective: roundConfig.objective,
-      botQualifyingLimit: roundConfig.qualifyLimit,
+      botQualifyingLimit: nextQualifyLimit,
       roundTimeLimit: roundConfig.timeLimit,
       roundTimer: roundConfig.timeLimit,
       activeBots: nextBots,
@@ -801,14 +839,16 @@ export const useGameStore = create<GameState>((set, get) => ({
                 failures: playerAlive ? get().failures : get().failures + 1
               });
             } else {
-              // Everyone still in the arena qualifies!
+              // Top remaining survivors qualify up to the qualify limit!
               const playerOk = !get().isPlayerEliminated;
               const finalWinners = computeSurvivalWinners(activeBots, get().eliminationOrder, get().racerProgress, playerOk);
+              const qualifiers = finalWinners.slice(0, botQualifyingLimit);
+              const playerQualifiedState = qualifiers.includes('player');
               set({
-                playerQualified: playerOk,
-                winnersList: finalWinners,
-                phase: playerOk ? 'ROUND_OUTCOME' : 'GAMEOVER',
-                failures: playerOk ? get().failures : get().failures + 1,
+                playerQualified: playerQualifiedState,
+                winnersList: qualifiers,
+                phase: playerQualifiedState ? 'ROUND_OUTCOME' : 'GAMEOVER',
+                failures: playerQualifiedState ? get().failures : get().failures + 1,
               });
             }
           } else if (currentLevelType === 'HUNT') {

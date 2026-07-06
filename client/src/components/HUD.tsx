@@ -535,7 +535,7 @@ export const HUD: React.FC = () => {
                   {playerAlive ? '🟢 Safe' : '🔴 Out'}
                 </div>
                 <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700, marginTop: '2px' }}>
-                  Alive: <span style={{ color: 'white', fontWeight: 900 }}>{survivorsCount}</span> / {totalParticipants}
+                  Alive: <span style={{ color: 'white', fontWeight: 900 }}>{survivorsCount}</span> / {totalParticipants} <span style={{ color: '#00e5ff' }}>({botQualifyingLimit} Qualify)</span>
                 </div>
                 {playerAlive && (
                   <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 700 }}>
@@ -1020,7 +1020,7 @@ export const HUD: React.FC = () => {
                 <span>Qualified: <strong style={{ color: modeColor }}>{winnersList.length} / {botQualifyingLimit}</strong></span>
               )}
               {currentLevelType === 'SURVIVAL' && (
-                <span>Remaining: <strong style={{ color: modeColor }}>{survivorsCount} Alive</strong> | Time: <strong style={{ color: '#ffd60a' }}>{displayTimerText}</strong></span>
+                <span>Remaining: <strong style={{ color: modeColor }}>{survivorsCount} Alive</strong> (Top {botQualifyingLimit} Qualify) | Time: <strong style={{ color: '#ffd60a' }}>{displayTimerText}</strong></span>
               )}
               {currentLevelType === 'FINAL' && (
                 <span>Remaining: <strong style={{ color: '#ffd60a' }}>{survivorsCount} Alive</strong></span>
