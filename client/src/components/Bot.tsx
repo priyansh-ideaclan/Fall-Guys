@@ -829,12 +829,16 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         steerDir.y = 0;
         steerDir.normalize();
 
-        // Qualify finish check
-        if (currentNodeIndex.current === pathNodes.length - 1 && dist < 1.4) {
-          setIsQualified(true);
-          qualifyBot(id);
-          rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          return;
+        // Qualify finish check: must reach the actual finish line (node 27 at Z=119.0)
+        if (currentNodeIndex.current === pathNodes.length - 1) {
+          const finalNodePos = new THREE.Vector3(...pathNodes[pathNodes.length - 1]).add(targetOffset.current);
+          const finalDist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(finalNodePos);
+          if (finalDist < 1.4) {
+            setIsQualified(true);
+            qualifyBot(id);
+            rb.setLinvel({ x: 0, y: 0, z: 0 }, true);
+            return;
+          }
         }
       }
     } else if (currentLevelId === 'survival_1') {
