@@ -200,6 +200,9 @@ const HexTile: React.FC<HexTileProps> = ({ id, position, color }) => {
       hasBeenSteppedOn.current = true;
       if (useGameStore.getState().phase === 'PLAYING' && status === 'active') {
         setStatus('warning');
+        // Play melodic piano note based on tile position coordinates to create spatial pitch variation
+        const pitchSeed = Math.round(Math.abs(position[0] * 17 + position[2] * 11));
+        audioManager.playHexPianoNote(pitchSeed);
       }
     }
   };

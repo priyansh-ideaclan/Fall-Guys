@@ -161,7 +161,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
   const wasNitroActiveRef = useRef(false);
   
   // Base running speeds
-  const botSpeed = useRef(difficulty === 'EASY' ? 4.0 : difficulty === 'MEDIUM' ? 4.8 : 5.6);
+  const botSpeed = useRef(difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.7 : 6.0);
   const botPath = useRef<[number, number, number][]>(LEVEL_1_MIDDLE_PATH);
   const windmillMistakeFlag = useRef<boolean | null>(null);
   const pusherMistakeFlag = useRef<boolean | null>(null);
@@ -196,8 +196,14 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       nitroDuration.current = 0;
       wasNitroActiveRef.current = false;
 
-      // Assign dynamic reaction times (0 - 0.5s)
-      reactionTimeRef.current = Math.random() * 0.48;
+      // Assign dynamic reaction times based on difficulty
+      if (difficulty === 'EASY') {
+        reactionTimeRef.current = Math.random() * 0.85 + 0.35; // Slow reaction
+      } else if (difficulty === 'MEDIUM') {
+        reactionTimeRef.current = Math.random() * 0.42 + 0.12; // Average reaction
+      } else {
+        reactionTimeRef.current = Math.random() * 0.12;        // Instant start reaction
+      }
       roundElapsedRef.current = 0;
 
       // Determine personality based on ID character code sum
@@ -206,16 +212,29 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       personalityRef.current = personalities[botIdx % personalities.length];
 
       // Tune speeds based on difficulty and personality
-      let baseSpeed = difficulty === 'EASY' ? 3.8 : difficulty === 'MEDIUM' ? 4.8 : 5.7;
+      let baseSpeed = difficulty === 'EASY' ? 3.5 : difficulty === 'MEDIUM' ? 4.7 : 6.0;
       if (personalityRef.current === 'AGGRESSIVE') baseSpeed *= 1.10;
       else if (personalityRef.current === 'RISKY') baseSpeed *= 1.06;
       else if (personalityRef.current === 'BALANCED') baseSpeed *= 1.02;
       else baseSpeed *= 0.96; // SAFE
       botSpeed.current = baseSpeed;
 
-      // Assign bot branching path choices based on ID
+      // Assign bot branching path choices based on difficulty and index (smart optimal pathing for Hard)
       const botIndex = parseInt(id.replace(/\D/g, '')) || 0;
-      const pathChoice = botIndex % 3;
+      let pathChoice = 1; // Default Middle
+      
+      const rand = Math.random();
+      if (difficulty === 'EASY') {
+        // Easy bots prefer the long, safe Left path (60%), then Middle (30%), then Right (10%)
+        pathChoice = rand < 0.60 ? 0 : (rand < 0.90 ? 1 : 2);
+      } else if (difficulty === 'HARD') {
+        // Hard bots prefer the short, fast Right path (60%), then Middle (30%), then Left (10%)
+        pathChoice = rand < 0.60 ? 2 : (rand < 0.90 ? 1 : 0);
+      } else {
+        // Medium bots have a balanced distribution
+        pathChoice = botIndex % 3;
+      }
+
       if (pathChoice === 0) {
         botPath.current = LEVEL_1_LEFT_PATH;
       } else if (pathChoice === 1) {
@@ -224,7 +243,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         botPath.current = LEVEL_1_RIGHT_PATH;
       }
       
-      const widthSpread = difficulty === 'EASY' ? 1.4 : difficulty === 'MEDIUM' ? 0.7 : 0.2;
+      const widthSpread = difficulty === 'EASY' ? 1.6 : difficulty === 'MEDIUM' ? 0.7 : 0.15;
       targetOffset.current.set(
         (Math.random() - 0.5) * widthSpread,
         0,
@@ -471,7 +490,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     // 4. Steer logic configurations
     let activeSpeed = botSpeed.current;
-    const reactionSpeedFactor = difficulty === 'EASY' ? 0.45 : difficulty === 'MEDIUM' ? 0.8 : 1.2;
+    const reactionSpeedFactor = difficulty === 'EASY' ? 0.30 : difficulty === 'MEDIUM' ? 0.75 : 1.40;
     let accelerationRatio = isGroundedRef.current 
       ? 0.15 * reactionSpeedFactor 
       : 0.06 * reactionSpeedFactor;
@@ -600,7 +619,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     if (isNearLandmark11Windmill) {
       if (windmillMistakeFlag.current === null) {
-        const threshold = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.12 : 0.02;
+        const threshold = difficulty === 'EASY' ? 0.55 : difficulty === 'MEDIUM' ? 0.20 : 0.02;
         windmillMistakeFlag.current = Math.random() < threshold;
       }
 
@@ -614,7 +633,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       }
     } else if (isNearBridgeWindmill) {
       if (windmillMistakeFlag.current === null) {
-        const threshold = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.12 : 0.02;
+        const threshold = difficulty === 'EASY' ? 0.55 : difficulty === 'MEDIUM' ? 0.20 : 0.02;
         windmillMistakeFlag.current = Math.random() < threshold;
       }
 
@@ -635,7 +654,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
     if (isNearPusher1 || isNearPusher2) {
       if (pusherMistakeFlag.current === null) {
-        const threshold = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.12 : 0.02;
+        const threshold = difficulty === 'EASY' ? 0.55 : difficulty === 'MEDIUM' ? 0.20 : 0.02;
         pusherMistakeFlag.current = Math.random() < threshold;
       }
 
@@ -858,7 +877,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       // Apply difficulty-based centering correction to counter platform tilting/sliding
       const distToCenter = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
       if (distToCenter > 4.2) {
-        const recoveryPull = difficulty === 'EASY' ? 0.18 : difficulty === 'MEDIUM' ? 0.65 : 1.35;
+        const recoveryPull = difficulty === 'EASY' ? 0.08 : difficulty === 'MEDIUM' ? 0.55 : 1.60;
         const toCenter = new THREE.Vector3(-pos.x, 0, -pos.z).normalize();
         steerDir.addScaledVector(toCenter, recoveryPull).normalize();
       }
@@ -921,7 +940,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       const distToTarget = targetPosVal ? new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(targetPosVal) : Infinity;
       const forceScan = !targetStillActive || distToTarget < 0.55;
       if (scanCooldown.current <= 0 || !hexTargetPos.current || forceScan) {
-        const scanFreq = difficulty === 'HARD' ? 0.05 : difficulty === 'MEDIUM' ? 0.18 : 0.45;
+        const scanFreq = difficulty === 'HARD' ? 0.04 : difficulty === 'MEDIUM' ? 0.20 : 0.50;
         scanCooldown.current = scanFreq;
 
         let bestTile: THREE.Object3D | null = null;
@@ -942,7 +961,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           }
         });
 
-        const maxRange = difficulty === 'HARD' ? 3.0 : difficulty === 'MEDIUM' ? 2.3 : 1.4;
+        const maxRange = difficulty === 'HARD' ? 3.3 : difficulty === 'MEDIUM' ? 2.2 : 1.3;
         const botHeight = pos.y;
 
         const candidates = activeTiles.filter((tile) => {
@@ -975,7 +994,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
             });
             
             // Scaled clustering index (Easy ignores clusters; Hard plans paths safely)
-            const neighborWeight = difficulty === 'HARD' ? 5.0 : difficulty === 'MEDIUM' ? 1.5 : 0.2;
+            const neighborWeight = difficulty === 'HARD' ? 6.0 : difficulty === 'MEDIUM' ? 1.5 : 0.1;
             score += neighborCount * neighborWeight;
 
             if (personalityRef.current === 'AGGRESSIVE' || personalityRef.current === 'RISKY') {
@@ -990,7 +1009,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
               }
             }
 
-            const mistakeRate = difficulty === 'EASY' ? 12.0 : difficulty === 'MEDIUM' ? 3.0 : 0.05;
+            const mistakeRate = difficulty === 'EASY' ? 18.0 : difficulty === 'MEDIUM' ? 4.0 : 0.02;
             score += (Math.random() - 0.5) * mistakeRate;
 
             if (score > bestScore) {
@@ -1035,7 +1054,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         const isTargetBelow = target.y < pos.y - 0.3;
         const minJumpDist = isTargetBelow ? 1.8 : 1.1;
         if (flatDist >= minJumpDist && flatDist <= 2.8 && isGroundedRef.current && jumpCooldown.current <= 0) {
-          const jumpChance = difficulty === 'EASY' ? 0.65 : 0.95;
+          const jumpChance = difficulty === 'EASY' ? 0.45 : difficulty === 'MEDIUM' ? 0.78 : 0.98;
           if (Math.random() < jumpChance) {
             shouldJump = true;
           }
@@ -1103,13 +1122,13 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
 
           // Dodge lower beam, unless blocked by upper beam
           if (!upperBeamBlocking) {
-            const successRate = difficulty === 'EASY' ? 0.38 : difficulty === 'MEDIUM' ? 0.70 : 0.97;
+            const successRate = difficulty === 'EASY' ? 0.25 : difficulty === 'MEDIUM' ? 0.65 : 0.98;
             if (Math.random() < successRate) {
               shouldJump = true;
             }
           } else {
             // Under upper beam: occasionally panic jump, but mostly run away
-            const panicChance = difficulty === 'EASY' ? 0.45 : difficulty === 'MEDIUM' ? 0.15 : 0.02;
+            const panicChance = difficulty === 'EASY' ? 0.60 : difficulty === 'MEDIUM' ? 0.20 : 0.01;
             if (Math.random() < panicChance) {
               shouldJump = true; // Make mistakes!
             }
@@ -1121,7 +1140,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     // C. Mid-air recovery jumping (double jump if falling)
     const currentVelY = rb.linvel().y;
     if (!isGroundedRef.current && currentVelY < -0.2 && jumpCountRef.current === 1 && jumpCooldown.current <= 0) {
-      const recoveryRate = difficulty === 'EASY' ? 0.15 : difficulty === 'MEDIUM' ? 0.55 : 0.96;
+      const recoveryRate = difficulty === 'EASY' ? 0.08 : difficulty === 'MEDIUM' ? 0.48 : 0.98;
       if (Math.random() < recoveryRate) {
         shouldJump = true;
       }
@@ -1273,7 +1292,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
       if (closestBall) {
         // Calculate hash of ID for stable per-bot reaction
         const botHash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 100;
-        const failThreshold = difficulty === 'EASY' ? 50 : difficulty === 'MEDIUM' ? 24 : 5;
+        const failThreshold = difficulty === 'EASY' ? 65 : difficulty === 'MEDIUM' ? 30 : 3;
         const willDodge = botHash >= failThreshold;
 
         if (willDodge) {
@@ -1282,7 +1301,7 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           
           // Steer away on the X axis from the ball's current X coordinate
           const steerSide = ballPos.x > pos.x ? -1.0 : 1.0;
-          const dodgeStrength = difficulty === 'HARD' ? 6.2 : 5.4;
+          const dodgeStrength = difficulty === 'HARD' ? 6.5 : difficulty === 'MEDIUM' ? 5.2 : 3.8;
           moveTargetX = steerSide * dodgeStrength;
           
           // Prevent steering off the side edges (platform bounds are X = -8.0 to +8.0)

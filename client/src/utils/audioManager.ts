@@ -792,6 +792,77 @@ class AudioManager {
     osc2.stop(this.ctx.currentTime + 0.41);
     noise.stop(this.ctx.currentTime + 0.41);
   }
+
+  public playHexPianoNote(pitchSeed: number) {
+    this.resumeContext();
+    if (!this.ctx || !this.sfxGain) return;
+
+    const now = this.ctx.currentTime;
+    
+    // Pleasant note frequencies from a C major pentatonic scale spanning multiple octaves
+    const scale = [
+      130.81, 146.83, 164.81, 196.00, 220.00, // C3, D3, E3, G3, A3
+      261.63, 293.66, 329.63, 392.00, 440.00, // C4, D4, E4, G4, A4
+      523.25, 587.33, 659.25, 783.99, 880.00  // C5, D5, E5, G5, A5
+    ];
+    
+    const noteIndex = Math.abs(pitchSeed) % scale.length;
+    const baseFreq = scale[noteIndex];
+    
+    // Add slight random detune (+/- 10 cents) to give each tile step human/analog warmth
+    const detune = (Math.random() - 0.5) * 10;
+    
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(baseFreq, now);
+    osc1.detune.setValueAtTime(detune, now);
+    
+    // First overtone (2x base frequency)
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(baseFreq * 2, now);
+    osc2.detune.setValueAtTime(detune, now);
+    
+    // Second overtone (3x base frequency)
+    const osc3 = this.ctx.createOscillator();
+    const gain3 = this.ctx.createGain();
+    
+    osc3.type = 'sine';
+    osc3.frequency.setValueAtTime(baseFreq * 3, now);
+    osc3.detune.setValueAtTime(detune, now);
+    
+    const duration = 1.0; // Decay duration of the soft piano sound
+    
+    gain1.gain.setValueAtTime(0.06, now); // Soft fundamental
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    
+    gain2.gain.setValueAtTime(0.03, now); // Softer overtone 1
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.75);
+    
+    gain3.gain.setValueAtTime(0.015, now); // Even softer overtone 2
+    gain3.gain.exponentialRampToValueAtTime(0.0001, now + duration * 0.5);
+    
+    osc1.connect(gain1);
+    gain1.connect(this.sfxGain);
+    
+    osc2.connect(gain2);
+    gain2.connect(this.sfxGain);
+    
+    osc3.connect(gain3);
+    gain3.connect(this.sfxGain);
+    
+    osc1.start(now);
+    osc2.start(now);
+    osc3.start(now);
+    
+    osc1.stop(now + duration + 0.1);
+    osc2.stop(now + duration + 0.1);
+    osc3.stop(now + duration + 0.1);
+  }
 }
 
 export const audioManager = new AudioManager();
