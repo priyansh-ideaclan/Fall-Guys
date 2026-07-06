@@ -49,9 +49,9 @@ const LEVEL_1_MIDDLE_PATH: [number, number, number][] = [
   [0, 0, 10],
   [0, 0, 15],
   [-2.5, 0.1, 24.0], // Tilting deck
-  [2.5, 0.1, 28.2],  // Platform A
-  [-1.2, 0.35, 33.8], // Platform B
-  [1.2, 0.6, 37.6],  // Platform C
+  [2.5, 0.1, 28.2],  // Platform A (Point 14)
+  [7.5, 0.1, 34.0],  // Point 20 (Right Path Hammer platform)
+  [1.2, 0.6, 37.6],  // Point 16 (Platform C)
   [-1.2, 0.85, 41.4], // Platform D
   [0, 1.0, 40.6],    // Checkpoint 2
   [0, 1.05, 47.0],   // Jump Pad
@@ -403,11 +403,13 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     // 2. Teleport check or instant elimination if fell below 
     if (currentLevelId === 'race_1') {
       if (pos.z > 20 && botLastCheckpoint.current[2] < 20) {
-        const checkpointX = pos.x < -4.0 ? -7.5 : (pos.x > 4.0 ? 7.5 : 0.0);
-        botLastCheckpoint.current = [checkpointX, 0.5, 20.0];
+        // Safe spawn points on actual solid platforms: left walkway (X=-7.5, Z=20), or Walkway 2 (X=0 or X=3, Z=18.5)
+        const checkpointX = pos.x < -4.0 ? -7.5 : (pos.x > 4.0 ? 3.0 : 0.0);
+        const checkpointZ = pos.x < -4.0 ? 20.0 : 18.5;
+        botLastCheckpoint.current = [checkpointX, 0.5, checkpointZ];
       }
       if (pos.z > 43.5 && botLastCheckpoint.current[2] < 43.5) botLastCheckpoint.current = [0, 2.2, 43.5];
-      if (pos.z > 80 && botLastCheckpoint.current[2] < 80) botLastCheckpoint.current = [0, 14.7, 80];
+      if (pos.z > 76.3 && botLastCheckpoint.current[2] < 76.3) botLastCheckpoint.current = [0, 9.5, 76.3]; // Solid deck at Checkpoint 3
       if (pos.z > 110 && botLastCheckpoint.current[2] < 110) botLastCheckpoint.current = [0, 5.7, 110];
     }
 
@@ -782,15 +784,17 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
         // Custom progressive threshold per node type to keep bots on track
         const isJumpPadNode = Math.abs(targetNode[2] - 47.0) < 0.1 || Math.abs(targetNode[2] - 63.5) < 0.1;
         const isNarrowBridge = Math.abs(targetNode[2] - 97.0) < 0.1;
-        const isSeesaw = targetNode[2] >= 22.0 && targetNode[2] <= 30.0;
+        // LM14 is now a flat fixed platform — use a comfortable threshold, not the tight seesaw one
+        const isPlatformA = targetNode[2] >= 26.0 && targetNode[2] <= 31.0;
         
         let threshold = 1.3;
         if (isJumpPadNode) {
           threshold = 0.35; // Must walk directly onto the jump pad
         } else if (isNarrowBridge) {
           threshold = 0.65; // Stay centered on the narrow bridge plank
-        } else if (isSeesaw) {
-          threshold = 0.75; // Stay centered on seesaw tilt bounds
+        } else if (isPlatformA) {
+          // Flat platform — easy to land on; threshold scales with difficulty
+          threshold = difficulty === 'EASY' ? 1.8 : difficulty === 'MEDIUM' ? 1.2 : 0.9;
         }
 
         let reached = dist < threshold;
@@ -804,13 +808,14 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
           
           const nextNode = pathNodes[currentNodeIndex.current];
           const isNextBridge = Math.abs(nextNode[2] - 97.0) < 0.1;
-          const isNextSeesaw = nextNode[2] >= 22.0 && nextNode[2] <= 30.0;
+          const isNextPlatformA = nextNode[2] >= 26.0 && nextNode[2] <= 31.0;
           
           let widthSpread = difficulty === 'EASY' ? 1.4 : difficulty === 'MEDIUM' ? 0.7 : 0.2;
           if (isNextBridge) {
             widthSpread = 0.05; // zero offset on 1.2m narrow bridge planks
-          } else if (isNextSeesaw) {
-            widthSpread = 0.15; // heavily centered on tilting seesaw decks
+          } else if (isNextPlatformA) {
+            // Flat platform: Easy bots can drift a lot, Hard bots stay precise
+            widthSpread = difficulty === 'EASY' ? 1.0 : difficulty === 'MEDIUM' ? 0.5 : 0.15;
           }
 
           targetOffset.current.set(
@@ -1131,12 +1136,71 @@ export const Bot: React.FC<BotProps> = ({ id, name, color, accessory, difficulty
     }
     lastPosRef.current.set(pos.x, pos.y, pos.z);
 
-    // E. Level-Specific Jump Triggers (e.g. Launch pads)
+    // E. Level-Specific Jump Triggers (e.g. Launch pads and Platform gaps)
     if (currentLevelId === 'race_1') {
-      // Hurdle at [0, 0.25, 8.5]
-      if (pos.z > 6.8 && pos.z < 9.0 && jumpCooldown.current <= 0) {
-        shouldJump = true;
+      // 1. MIDDLE PATHWAY Gaps (Platform A -> Point 20 -> Platform C -> Platform D Gaps)
+      // Seesaw 1 to Platform A (LM14, Z=25-28.5)
+      if (pos.x >= -3.5 && pos.x <= 3.5 && pos.z > 25.0 && pos.z < 28.5 && pos.y < 0.6 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.70 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
       }
+      // Platform A to Point 20 (Hammer platform) (Z = 29.1 to 30.6)
+      if (pos.x >= 1.5 && pos.x <= 5.7 && pos.z > 29.1 && pos.z < 30.6 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+      // Point 20 (Hammer platform) to Platform C (Z = 33.8 to 36.6)
+      if (pos.x >= 4.5 && pos.z > 33.8 && pos.z < 36.6 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+      // Platform C to Platform D (Z = 38.0 to 39.7)
+      if (pos.x >= -1.0 && pos.x <= 3.0 && pos.z > 38.0 && pos.z < 39.7 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+
+      // 2. LEFT PATHWAY Gaps
+      // Left path exit walkway to Checkpoint 2 platform (Z = 35.8 to 37.6)
+      if (pos.x < -4.0 && pos.z > 35.8 && pos.z < 37.6 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+
+      // 3. RIGHT PATHWAY Gaps
+      // Moving platform to Speed pad (Z = 23.2 to 24.7)
+      if (pos.x > 4.0 && pos.z > 23.2 && pos.z < 24.7 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+      // Speed pad to Hammer platform (Z = 28.0 to 29.8)
+      if (pos.x > 4.0 && pos.z > 28.0 && pos.z < 29.8 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+      // Hammer platform to Checkpoint 2 platform (Z = 36.6 to 38.2)
+      if (pos.x > 4.0 && pos.z > 36.6 && pos.z < 38.2 && jumpCooldown.current <= 0) {
+        const jumpChance = difficulty === 'EASY' ? 0.35 : difficulty === 'MEDIUM' ? 0.72 : 0.98;
+        if (Math.random() < jumpChance) {
+          shouldJump = true;
+        }
+      }
+
+      // 4. VERTICAL climb Storey triggers
       // Vertical climb Storey 1 -> Storey 2
       if (pos.z > 63.5 && pos.z < 66.0 && jumpCooldown.current <= 0) {
         shouldJump = true;

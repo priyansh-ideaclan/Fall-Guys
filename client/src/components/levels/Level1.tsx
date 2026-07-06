@@ -273,18 +273,14 @@ export const Level1: React.FC = () => {
       <WallPusher position={[-9.75, 0.7, 27.0]} faceDirection="right" extensionLength={3.2} interval={4.0} offset={0} />
       <WallPusher position={[-9.75, 0.7, 32.0]} faceDirection="right" extensionLength={3.2} interval={4.0} offset={2.0} />
 
-      {/* Platform A (LM14): SEESAW — tilts front/back as player walks across
-          axis='x' means rotation is around X-axis (front-back tilt)
-          Longer plank bridges the Middle path gap — extra challenge */}
-      <Seesaw
-        position={[2.5, 0.25, 28.2]}
-        length={6.2}
-        width={4.2}
-        thickness={0.28}
-        axis="z"
-        color="#ff9500"
-        pivotColor="#554433"
-      />
+      {/* Platform A (LM14): Flat fixed platform — bridges the Middle path gap */}
+      <RigidBody type="fixed" colliders={false}>
+        <CuboidCollider args={[3.1, 0.14, 2.1]} position={[2.5, 0.25, 28.2]} />
+        <mesh receiveShadow position={[2.5, 0.25, 28.2]}>
+          <boxGeometry args={[6.2, 0.28, 4.2]} />
+          <meshStandardMaterial color="#ff9500" roughness={0.6} />
+        </mesh>
+      </RigidBody>
 
       {/* Platform B: Moving X flat platform */}
       <MovingPlatform position={[-1.2, 0.35, 33.8]} size={[4.0, 0.5, 4.0]} direction="x" range={1.2} speed={1.2} color="#ffd60a" />
