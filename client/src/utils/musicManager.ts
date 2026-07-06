@@ -333,7 +333,13 @@ class MusicManager {
     this.updateGainVolumes();
     
     // Track parameters
-    const BPM_MAP: Record<number, number> = { 1: 186, 2: 96, 3: 112, 4: 128 };
+    const BPM_MAP: Record<number, number> = { 
+      1: 186, // American Idiot
+      2: 112, // Without Me
+      3: 128, // Victory Lap Five
+      4: 120, // Alive
+      5: 122  // Moves Like Jagger
+    };
     const bpm = BPM_MAP[trackId] || 120;
     
     // Pitches scale frequencies (Pentatonic/Melodic blend)
@@ -342,16 +348,18 @@ class MusicManager {
     // Melodies (length 16 steps)
     const MELODIES: Record<number, number[]> = {
       1: [12, 12, 12, 15, 13, 15, 12, -1, 12, 12, 12, 15, 13, 15, 12, -1], // American Idiot
-      2: [8, 8, 10, 11, 10, -1, 8, -1, 8, 8, 10, 11, 10, -1, 8, -1],       // Rollin'
-      3: [14, -1, 12, 11, 10, -1, 10, 11, 12, -1, 13, 12, 11, -1, 12, -1],  // Without Me
-      4: [12, 14, 15, 14, 12, 14, 12, 10, 12, 14, 15, 14, 12, 14, 15, 17], // Victory Lap
+      2: [14, -1, 12, 11, 10, -1, 10, 11, 12, -1, 13, 12, 11, -1, 12, -1],  // Without Me
+      3: [12, 14, 15, 14, 12, 14, 12, 10, 12, 14, 15, 14, 12, 14, 15, 17], // Victory Lap Five
+      4: [8, 8, 10, 11, 10, -1, 8, -1, 8, 8, 10, 11, 10, -1, 8, -1],       // Alive
+      5: [12, -1, 14, -1, 15, 14, 12, -1, 12, -1, 14, -1, 15, 14, 12, -1]  // Moves Like Jagger
     };
     
     const BASS_LINES: Record<number, number[]> = {
       1: [7, 7, 7, 7, 3, 3, 3, 3, 5, 5, 5, 5, 3, 3, 3, 3],
-      2: [4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 2, 2, 2, 2],
-      3: [9, 9, 9, 9, 7, 7, 7, 7, 5, 5, 5, 5, 7, 7, 7, 7],
-      4: [7, 7, 7, 7, 10, 10, 10, 10, 8, 8, 8, 8, 7, 7, 7, 7],
+      2: [9, 9, 9, 9, 7, 7, 7, 7, 5, 5, 5, 5, 7, 7, 7, 7],
+      3: [7, 7, 7, 7, 10, 10, 10, 10, 8, 8, 8, 8, 7, 7, 7, 7],
+      4: [4, 4, 4, 4, 4, 4, 4, 4, 1, 1, 1, 1, 2, 2, 2, 2],
+      5: [7, 7, 7, 7, 5, 5, 5, 5, 3, 3, 3, 3, 5, 5, 5, 5]
     };
 
     const notes = MELODIES[trackId] || MELODIES[1];
